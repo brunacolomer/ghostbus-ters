@@ -9,21 +9,27 @@ import java.time.LocalDateTime;
 @Data
 public class Bus {
         @Id
-        @GeneratedValue(strategy = GenerationType.IDENTITY)
-        private Long id;
+        @Column(name = "bus_id")
+        private Long busId;
 
-        @Column(name = "current_route_id")
-        private String currentRouteId;
+        @Column(name = "route_id")
+        private String routeId;
 
-        @Column(name = "current_latitude")
-        private Double currentLatitude;
+        @Column(name = "trip_id")
+        private String tripId;
 
-        @Column(name = "current_longitude")
-        private Double currentLongitude;
+        @Column(name = "latitude")
+        private Double latitude;
 
-        @Column(name = "start_time")
-        private LocalDateTime startTime;
+        @Column(name = "longitude")
+        private Double longitude;
 
-        @Column(name = "end_time")
-        private LocalDateTime endTime;
+        @Column(name = "on_time")
+        private Double onTime;
+
+        @Column(name = "speed")
+        private Double speed;
+
+        @Column(name = "last_updated")
+        private LocalDateTime lastUpdated;
 }
