@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Map, NavigationControl, setWorkerUrl } from 'maplibre-gl'
 import mapWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
-import { getBuses, getRoutes, type Bus, type BusRoute } from '../routes/getRoutes'
-import { showRoutes, type RouteMap } from '../routes/mapRoutes'
+import { getRoutes, type BusRoute } from '../routes/getRoutes'
+import { showRoutes } from '../routes/mapRoutes'
 import { Introduction } from './Introduction'
 import 'maplibre-gl/dist/maplibre-gl.css'
 
@@ -17,9 +17,7 @@ export function MapView() {
   useEffect(() => {
     if (!container.current) return
     const controller = new AbortController()
-    let routeMap: RouteMap | undefined
-    let buses: Bus[] = []
-    let refreshBuses: number | undefined
+    let clearRoutes: (() => void) | undefined
     const map = new Map({
       container: container.current,
       style: 'https://tiles.openfreemap.org/styles/dark',
@@ -28,19 +26,13 @@ export function MapView() {
     })
     mapRef.current = map
     let routes: BusRoute[] = []
+    let fitted = false
     map.addControl(new NavigationControl(), 'top-right')
     map.on('error', (event) => console.error('Map loading error:', event.error))
     function drawRoutes() {
-      routeMap?.clear()
-      routeMap = showRoutes(map, routes, false)
-      routeMap?.updateBuses(buses)
-    }
-    function pollBuses() {
-      getBuses(controller.signal).then((data) => {
-        if (controller.signal.aborted) return
-        buses = data
-        routeMap?.updateBuses(buses)
-      }).catch(() => undefined)
+      clearRoutes?.()
+      clearRoutes = showRoutes(map, routes, !fitted)
+      if (routes.length) fitted = true
     }
     map.on('style.load', () => {
       // Lift the basemap contrast while preserving its road widths and label sizes.
@@ -60,16 +52,13 @@ export function MapView() {
       if (controller.signal.aborted) return
       routes = data
       if (map.isStyleLoaded()) drawRoutes()
-      pollBuses()
-      refreshBuses = window.setInterval(pollBuses, 20_000)
       setStatus(routes.length ? '' : 'No bus routes available.')
     }).catch(() => {
       if (!controller.signal.aborted) setStatus('Could not load routes. Please refresh to try again.')
     })
     return () => {
       controller.abort()
-      if (refreshBuses) window.clearInterval(refreshBuses)
-      routeMap?.clear()
+      clearRoutes?.()
       map.remove()
       mapRef.current = null
     }
