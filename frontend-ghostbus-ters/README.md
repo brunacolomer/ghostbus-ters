@@ -1,18 +1,37 @@
 # Ghost Bus-ters
 
-Minimal React + Vite + TypeScript app displaying a full-screen Miami map.
+Minimal React + Vite + TypeScript dark bus map using MapLibre and OpenFreeMap's Dark style. Internet access and WebGL are required; no API key is needed.
 
 ```sh
 npm install
 npm run dev
 ```
 
-The map uses MapLibre GL JS and OpenFreeMap's free Positron style. No API key is needed. Internet access and WebGL are required.
+The demo displays one direction of Miami route 2, with its actual shape and all 43 stops extracted from `google_transit.zip`. Hover or tap a route or stop for details. This is a static sample, not live service information. The line popup shows the sample stop count; a stop popup shows its name. The GTFS headsign belongs to this specific trip, not both directions of the bus line.
 
-- `src/App.tsx`: renders the map.
-- `src/components/MapView.tsx`: map setup, Vite worker configuration, and cleanup.
-- `src/index.css`: full-screen sizing.
+- `src/components/MapView.tsx`: map setup and loading state.
+- `src/routes/mapRoutes.ts`: route lines, stop dots, hover highlight and fixed-size popup.
+- `src/routes/getRoutes.ts`: response type and the single fetch function.
+- `public/mock/routes.json`: temporary endpoint response, derived from GTFS routes, trips, shapes, stop_times and stops.
 
-Initial camera: longitude -80.1918, latitude 25.7617, zoom 11.7.
+To connect the backend, change the URL in `getRoutes` and remove `public/mock/routes.json`. The endpoint should return an array with this simplified format (one entry per route direction/variant, each with a unique ID):
+
+```ts
+{
+  id: string
+  number: string
+  name: string
+  headsign: string
+  color: string // CSS hex color, e.g. #008000
+  coordinates: [number, number][] // [longitude, latitude], ordered along the shape
+  stops: {
+    id: string
+    name: string
+    coordinates: [number, number]
+  }[] // In travel order
+}[]
+```
+
+Each shape must contain at least two coordinates. The frontend renders every returned entry and fits the map to their bounds. The backend handles GTFS joins and selects the relevant directions/variants. Configure CORS if the endpoint is hosted on a different origin.
 
 Run `npm run build` and `npm run lint` to check the project.
