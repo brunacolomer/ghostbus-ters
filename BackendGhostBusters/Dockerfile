@@ -7,7 +7,7 @@ COPY . .
 RUN chmod +x gradlew
 RUN ./gradlew build -x test
 
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:27-jre
 
 WORKDIR /app
 
