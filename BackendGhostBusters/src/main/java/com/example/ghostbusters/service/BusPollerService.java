@@ -42,6 +42,7 @@ public class BusPollerService {
                 bus.setBusId(attrs.BusID());
                 bus.setRouteId(attrs.RouteID());
                 bus.setTripId(attrs.TripID());
+                bus.setTripHeadsign(attrs.TripHeadsign());
                 bus.setLongitude(geom.x());
                 bus.setLatitude(geom.y());
                 bus.setOnTime(attrs.OnTime());

@@ -32,4 +32,7 @@ public class Bus {
 
         @Column(name = "last_updated")
         private LocalDateTime lastUpdated;
+
+        @Column(name = "tripHeadsign")
+        private String tripHeadsign;
 }

@@ -13,14 +13,23 @@ public class StopVisit {
     private Long id;
 
     @Column(name = "trip_id")
-    private Long tripId;
+    private String tripId;
 
     @Column(name = "stop_id")
     private String stopId;
 
-    @Column(name = "time_stamp")
-    private LocalDateTime timeStamp;
+    @Column(name = "route_id")
+    private String routeId;
+
+    @Column(name = "scheduled_time")
+    private String scheduledTime;
 
     @Enumerated(EnumType.STRING)
     private StopVisitStatus status;
+
+    @Column(name = "matched_bus_id")
+    private Long matchedBusId;
+
+    @Column(name = "checked_at")
+    private LocalDateTime checkedAt;
 }

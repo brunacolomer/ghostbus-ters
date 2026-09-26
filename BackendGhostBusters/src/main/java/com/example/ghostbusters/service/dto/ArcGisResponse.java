@@ -14,6 +14,7 @@ public record ArcGisResponse(List<ArcGisFeature> features) {
             Long BusID,
             String RouteID,
             String TripID,
+            String TripHeadsign,
             Double OnTime,
             Double vehSpeed
     ) {}
