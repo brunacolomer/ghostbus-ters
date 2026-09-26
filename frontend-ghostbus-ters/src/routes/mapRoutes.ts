@@ -46,7 +46,7 @@ function addRoute(map: Map, route: BusRoute) {
   return [hit, stops]
 }
 
-export function showRoutes(map: Map, routes: BusRoute[]) {
+export function showRoutes(map: Map, routes: BusRoute[], fit = true) {
   if (!routes.length) return
 
   const layers = routes.flatMap((route) => addRoute(map, route))
@@ -55,7 +55,7 @@ export function showRoutes(map: Map, routes: BusRoute[]) {
     route.coordinates.forEach((point) => bounds.extend(point))
     route.stops.forEach((stop) => bounds.extend(stop.coordinates))
   }
-  if (!bounds.isEmpty()) map.fitBounds(bounds, { padding: 50, maxZoom: 14 })
+  if (fit && !bounds.isEmpty()) map.fitBounds(bounds, { padding: 50, maxZoom: 14 })
 
   // Create the popup once; only its text changes between a route and its stops.
   const content = document.createElement('div')

@@ -13,22 +13,56 @@ body,
 
 body {
   font-family: system-ui, sans-serif;
+
+}
+
+.map-view {
+  --surface: #20272d;
+  --muted: #aebbc5;
+  --border: #ffffff1a;
+  --hover: #ffffff14;
+  --icon-filter: invert(1);
   color-scheme: dark;
   color: #edf2f5;
   background: #111518;
+  height: 100%;
+  position: relative;
 }
-
-.map-view { height: 100%; position: relative; }
+.map-view[data-theme='light'] {
+  --surface: #fff;
+  --muted: #586570;
+  --border: #0000001a;
+  --hover: #0000000a;
+  --icon-filter: none;
+  color-scheme: light;
+  color: #19342e;
+  background: #eef1f3;
+}
+.theme-toggle {
+  position: absolute;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 9px 14px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface);
+  color: inherit;
+  font: 13px system-ui, sans-serif;
+  cursor: pointer;
+  box-shadow: 0 2px 10px #0002;
+}
+.theme-toggle:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
 
 .map-status {
   position: absolute;
-  bottom: 32px;
+  bottom: 80px;
   left: 50%;
   transform: translateX(-50%);
   margin: 0;
   padding: 10px 16px;
   border-radius: 12px;
-  background: #20272d;
+  background: var(--surface);
   font-size: 13px;
 }
 
@@ -37,7 +71,7 @@ body {
   padding: 0;
   border-radius: 12px;
   overflow: hidden;
-  background: #20272d;
+  background: var(--surface);
   box-shadow: 0 4px 20px #0006;
 }
 .route-popup-body {
@@ -65,7 +99,7 @@ body {
 .route-popup-detail {
   grid-column: 1 / -1;
   margin: 0;
-  color: #aebbc5;
+  color: var(--muted);
 }
 .route-popup-name,
 .route-popup-detail {
@@ -76,15 +110,15 @@ body {
 }
 
 .route-popup.maplibregl-popup-anchor-bottom .maplibregl-popup-tip {
-  border-top-color: #20272d;
+  border-top-color: var(--surface);
 }
 .maplibregl-ctrl-group,
 .maplibregl-ctrl-attrib {
-  background: #20272d;
-  color: #aebbc5;
+  background: var(--surface);
+  color: var(--muted);
 }
 .maplibregl-ctrl-attrib a { color: inherit; }
-.maplibregl-ctrl-group button + button { border-top-color: #ffffff1a; }
-.maplibregl-ctrl-group button:hover { background-color: #ffffff14; }
+.maplibregl-ctrl-group button + button { border-top-color: var(--border); }
+.maplibregl-ctrl-group button:hover { background-color: var(--hover); }
 .maplibregl-ctrl-icon,
-.maplibregl-ctrl-attrib-button { filter: invert(1); }
+.maplibregl-ctrl-attrib-button { filter: var(--icon-filter); }
