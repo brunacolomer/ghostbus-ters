@@ -8,9 +8,11 @@ export type BusRoute = {
   stops: { id: string; name: string; coordinates: [number, number] }[]
 }
 
+const productionApiUrl = 'https://api.ghostbus-ters.miami'
+const apiUrl = import.meta.env.VITE_API_BASE_URL || productionApiUrl
+
 export async function getRoutes(signal: AbortSignal): Promise<BusRoute[]> {
-  // Replace this URL with the backend endpoint when it is ready.
-  const response = await fetch(`${import.meta.env.BASE_URL}mock/routes.json`, { signal })
+  const response = await fetch(`${apiUrl.replace(/\/$/, '')}/api/routes`, { signal })
   if (!response.ok) throw new Error('Could not load bus routes')
   return response.json()
 }

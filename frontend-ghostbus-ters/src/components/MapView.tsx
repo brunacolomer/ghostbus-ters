@@ -3,6 +3,7 @@ import { Map, NavigationControl, setWorkerUrl } from 'maplibre-gl'
 import mapWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import { getRoutes, type BusRoute } from '../routes/getRoutes'
 import { showRoutes } from '../routes/mapRoutes'
+import { Introduction } from './Introduction'
 import 'maplibre-gl/dist/maplibre-gl.css'
 
 setWorkerUrl(mapWorkerUrl)
@@ -74,6 +75,7 @@ export function MapView() {
       <button className="theme-toggle" type="button" onClick={toggleTheme} aria-label="Dark mode" aria-pressed={dark}>
         {dark ? '☀ Light mode' : '☾ Dark mode'}
       </button>
+      <Introduction />
       {status && <p className="map-status" role="status">{status}</p>}
     </main>
   )
