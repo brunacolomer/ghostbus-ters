@@ -47,5 +47,4 @@ public class GhostBusController {
                     settingsRepository.save(settings);
                     return settings.getCountingSince();
                 });
-    }
-}
+    }}
