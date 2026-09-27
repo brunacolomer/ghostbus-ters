@@ -3,14 +3,10 @@
   <component name="CompilerConfiguration">
     <annotationProcessing>
       <profile default="true" name="Default" enabled="true" />
-      <profile name="Gradle Imported" enabled="true">
-        <outputRelativeToContentRoot value="true" />
-        <processorPath useClasspath="false">
-          <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.projectlombok/lombok/1.18.48/6858f13541bab505384f07053c5a7b539bbfd3e3/lombok-1.18.48.jar" />
-        </processorPath>
-        <module name="GhostBusters.test" />
-        <module name="GhostBusters.main" />
-      </profile>
     </annotationProcessing>
+    <bytecodeTargetLevel>
+      <module name="GhostBusters" target="17" />
+      <module name="GhostBusters.main" target="17" />
+    </bytecodeTargetLevel>
   </component>
 </project>
