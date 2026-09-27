@@ -9,26 +9,20 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 public class GhostBusDetectionService {
 
-    private static final double DISTANCE_THRESHOLD_METERS = 300.0;
-    private static final double TIME_TOLERANCE_SECONDS = 1800.0;
     private static final int SECONDS_PER_DAY = 86400;
     private static final ZoneId EASTERN = ZoneId.of("America/New_York");
 
     private final StopTimeRepository stopTimeRepository;
     private final StopVisitRepository stopVisitRepository;
-    private final BusPositionRepository busPositionRepository;
 
     public GhostBusDetectionService(StopTimeRepository stopTimeRepository,
-                                    StopVisitRepository stopVisitRepository,
-                                    BusPositionRepository busPositionRepository) {
+                                    StopVisitRepository stopVisitRepository) {
         this.stopTimeRepository = stopTimeRepository;
         this.stopVisitRepository = stopVisitRepository;
-        this.busPositionRepository = busPositionRepository;
     }
 
     @Scheduled(fixedRate = 120000)
@@ -61,29 +55,20 @@ public class GhostBusDetectionService {
             return;
         }
 
-        Set<String> tripIds = toCheck.stream().map(StopTime::getTripId).collect(Collectors.toSet());
-        List<Object[]> visitedPairs = busPositionRepository.findVisitedTripStopPairs(
-                tripIds, LocalDateTime.now(EASTERN).minusMinutes(45), DISTANCE_THRESHOLD_METERS, TIME_TOLERANCE_SECONDS);
-
-        Set<String> visitedKeys = new HashSet<>();
-        for (Object[] row : visitedPairs) {
-            visitedKeys.add(row[0] + "|" + row[1]);
-        }
-        System.out.println(">>> " + visitedKeys.size() + " (trip,stop) pairs confirmed visited via GPS proximity");
+        Set<String> activeTripIds = stopTimeRepository.findActiveTripIds();
+        System.out.println(">>> " + activeTripIds.size() + " active trip IDs found via route+headsign match");
 
         List<StopVisit> toSave = new ArrayList<>();
         int visited = 0, missed = 0;
 
         for (StopTime st : toCheck) {
-            String key = st.getTripId() + "|" + st.getStopId();
-
             StopVisit visit = new StopVisit();
             visit.setTripId(st.getTripId());
             visit.setStopId(st.getStopId());
             visit.setScheduledTime(st.getArrivalTime());
             visit.setCheckedAt(LocalDateTime.now(EASTERN));
 
-            if (visitedKeys.contains(key)) {
+            if (activeTripIds.contains(st.getTripId())) {
                 visit.setStatus(StopVisitStatus.VISITED);
                 visited++;
             } else {

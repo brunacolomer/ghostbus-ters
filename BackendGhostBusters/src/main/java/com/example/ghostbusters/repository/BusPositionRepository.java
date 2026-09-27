@@ -12,17 +12,22 @@ import java.util.List;
 public interface BusPositionRepository extends JpaRepository<BusPosition, Long> {
 
     @Query(value = """
-        SELECT DISTINCT st.trip_id AS tripId, st.stop_id AS stopId
-        FROM transit.stop_times st
-        JOIN transit.trips t ON t.trip_id = st.trip_id
+        SELECT DISTINCT rst.trip_id AS tripId, rst.stop_id AS stopId
+        FROM transit.stop_times rst
+        JOIN transit.trips t ON t.trip_id = rst.trip_id
         JOIN transit.routes r ON r.route_id = t.route_id
-        JOIN transit.stops s ON s.stop_id = st.stop_id
-        JOIN transit.bus_positions bp
-          ON bp.route_id = r.route_short_name
-         AND TRIM(UPPER(bp.trip_headsign)) = TRIM(UPPER(t.trip_headsign))
-         AND bp.recorded_at > :since
-        WHERE st.trip_id IN (:tripIds)
-          AND ABS(EXTRACT(EPOCH FROM (st.arrival_time::interval - bp.recorded_at::time::interval))) <= :timeToleranceSeconds
+        JOIN transit.stops s ON s.stop_id = rst.stop_id
+        JOIN LATERAL (
+            SELECT bp.latitude, bp.longitude, bp.recorded_at
+            FROM transit.bus_positions bp
+            WHERE bp.route_id = r.route_short_name
+              AND TRIM(UPPER(bp.trip_headsign)) = TRIM(UPPER(t.trip_headsign))
+              AND bp.recorded_at > :since
+            ORDER BY ABS(EXTRACT(EPOCH FROM (rst.arrival_time::interval - bp.recorded_at::time::interval)))
+            LIMIT 1
+        ) bp ON true
+        WHERE rst.trip_id IN (:tripIds)
+          AND ABS(EXTRACT(EPOCH FROM (rst.arrival_time::interval - bp.recorded_at::time::interval))) <= :timeToleranceSeconds
           AND public.ST_DWithin(
                 s.geom::public.geography,
                 public.ST_SetSRID(public.ST_MakePoint(bp.longitude, bp.latitude), 4326)::public.geography,
