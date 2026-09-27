@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -16,6 +17,7 @@ public class GhostBusDetectionService {
     private static final double DISTANCE_THRESHOLD_METERS = 300.0;
     private static final double TIME_TOLERANCE_SECONDS = 1800.0;
     private static final int SECONDS_PER_DAY = 86400;
+    private static final ZoneId EASTERN = ZoneId.of("America/New_York");
 
     private final StopTimeRepository stopTimeRepository;
     private final StopVisitRepository stopVisitRepository;
@@ -33,21 +35,16 @@ public class GhostBusDetectionService {
     public void detectGhostBuses() {
         long start = System.currentTimeMillis();
 
-        int nowSeconds = toSecondsSinceMidnight(LocalTime.now());
+        int nowSeconds = toSecondsSinceMidnight(LocalTime.now(EASTERN));
         int windowStartSeconds = Math.floorMod(nowSeconds - 30 * 60, SECONDS_PER_DAY);
         int windowEndSeconds = Math.floorMod(nowSeconds - 10 * 60, SECONDS_PER_DAY);
         System.out.println(">>> Ghost-bus check running for window " + windowStartSeconds + "s - " + windowEndSeconds + "s (of day)");
 
-        List<StopTime> dueStopTimes = stopTimeRepository.findAll().stream()
-                .filter(st -> {
-                    Integer schedSeconds = parseGtfsSeconds(st.getArrivalTime());
-                    return schedSeconds != null && isInWindow(schedSeconds, windowStartSeconds, windowEndSeconds);
-                })
-                .toList();
+        List<StopTime> dueStopTimes = stopTimeRepository.findDueInWindow(windowStartSeconds, windowEndSeconds);
         System.out.println(">>> " + dueStopTimes.size() + " scheduled stops due for checking");
 
         Set<String> alreadyVisited = new HashSet<>();
-        for (StopVisit v : stopVisitRepository.findByCheckedAtAfter(LocalDateTime.now().minusHours(2))) {
+        for (StopVisit v : stopVisitRepository.findByCheckedAtAfter(LocalDateTime.now(EASTERN).minusHours(2))) {
             if (v.getStatus() == StopVisitStatus.VISITED) {
                 alreadyVisited.add(v.getTripId() + "|" + v.getStopId());
             }
@@ -66,7 +63,7 @@ public class GhostBusDetectionService {
 
         Set<String> tripIds = toCheck.stream().map(StopTime::getTripId).collect(Collectors.toSet());
         List<Object[]> visitedPairs = busPositionRepository.findVisitedTripStopPairs(
-                tripIds, LocalDateTime.now().minusMinutes(45), DISTANCE_THRESHOLD_METERS, TIME_TOLERANCE_SECONDS);
+                tripIds, LocalDateTime.now(EASTERN).minusMinutes(45), DISTANCE_THRESHOLD_METERS, TIME_TOLERANCE_SECONDS);
 
         Set<String> visitedKeys = new HashSet<>();
         for (Object[] row : visitedPairs) {
@@ -84,7 +81,7 @@ public class GhostBusDetectionService {
             visit.setTripId(st.getTripId());
             visit.setStopId(st.getStopId());
             visit.setScheduledTime(st.getArrivalTime());
-            visit.setCheckedAt(LocalDateTime.now(java.time.ZoneId.of("America/New_York")));
+            visit.setCheckedAt(LocalDateTime.now(EASTERN));
 
             if (visitedKeys.contains(key)) {
                 visit.setStatus(StopVisitStatus.VISITED);
@@ -104,27 +101,5 @@ public class GhostBusDetectionService {
 
     private int toSecondsSinceMidnight(LocalTime t) {
         return t.getHour() * 3600 + t.getMinute() * 60 + t.getSecond();
-    }
-
-    private boolean isInWindow(int scheduledSeconds, int windowStartSeconds, int windowEndSeconds) {
-        if (windowStartSeconds <= windowEndSeconds) {
-            return scheduledSeconds >= windowStartSeconds && scheduledSeconds <= windowEndSeconds;
-        } else {
-            // window itself wraps past midnight
-            return scheduledSeconds >= windowStartSeconds || scheduledSeconds <= windowEndSeconds;
-        }
-    }
-
-    private Integer parseGtfsSeconds(String gtfsTime) {
-        if (gtfsTime == null) return null;
-        try {
-            String[] parts = gtfsTime.split(":");
-            int hour = Integer.parseInt(parts[0]) % 24;
-            int minute = Integer.parseInt(parts[1]);
-            int second = Integer.parseInt(parts[2]);
-            return hour * 3600 + minute * 60 + second;
-        } catch (Exception e) {
-            return null;
-        }
     }
 }
