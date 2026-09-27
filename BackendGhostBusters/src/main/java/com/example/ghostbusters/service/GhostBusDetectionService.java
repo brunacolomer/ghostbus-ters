@@ -84,7 +84,7 @@ public class GhostBusDetectionService {
             visit.setTripId(st.getTripId());
             visit.setStopId(st.getStopId());
             visit.setScheduledTime(st.getArrivalTime());
-            visit.setCheckedAt(LocalDateTime.now());
+            visit.setCheckedAt(LocalDateTime.now(java.time.ZoneId.of("America/New_York")));
 
             if (visitedKeys.contains(key)) {
                 visit.setStatus(StopVisitStatus.VISITED);

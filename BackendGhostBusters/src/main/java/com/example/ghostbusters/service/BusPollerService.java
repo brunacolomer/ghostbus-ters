@@ -38,7 +38,7 @@ public class BusPollerService {
             }
 
             int saved = 0;
-            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime now = LocalDateTime.now(java.time.ZoneId.of("America/New_York"));
 
             for (ArcGisResponse.ArcGisFeature feature : response.features()) {
                 var attrs = feature.attributes();

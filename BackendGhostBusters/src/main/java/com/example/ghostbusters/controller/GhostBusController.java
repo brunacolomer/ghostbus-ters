@@ -32,7 +32,7 @@ public class GhostBusController {
     public Map<String, String> resetGhostBusCount() {
         GhostCountSettings settings = settingsRepository.findById(1).orElse(new GhostCountSettings());
         settings.setId(1);
-        settings.setCountingSince(LocalDateTime.now());
+        settings.setCountingSince(LocalDateTime.now(java.time.ZoneId.of("America/New_York")));
         settingsRepository.save(settings);
         return Map.of("status", "reset", "countingSince", settings.getCountingSince().toString());
     }
@@ -43,7 +43,7 @@ public class GhostBusController {
                 .orElseGet(() -> {
                     GhostCountSettings settings = new GhostCountSettings();
                     settings.setId(1);
-                    settings.setCountingSince(LocalDateTime.now());
+                    settings.setCountingSince(LocalDateTime.now(java.time.ZoneId.of("America/New_York")));
                     settingsRepository.save(settings);
                     return settings.getCountingSince();
                 });
