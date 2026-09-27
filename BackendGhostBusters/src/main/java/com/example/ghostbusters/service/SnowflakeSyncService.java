@@ -32,7 +32,7 @@ public class SnowflakeSyncService {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    @Scheduled(fixedRate = 60000) // every 10 minutes
+    @Scheduled(fixedRate = 600000) // every 10 minutes
     public void syncRouteReliability() {
         long start = System.currentTimeMillis();
         System.out.println(">>> Snowflake sync starting");
