@@ -5,6 +5,7 @@ import com.example.ghostbusters.repository.GhostCountSettingsRepository;
 import com.example.ghostbusters.repository.StopVisitRepository;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Map;
 
@@ -32,7 +33,7 @@ public class GhostBusController {
     public Map<String, String> resetGhostBusCount() {
         GhostCountSettings settings = settingsRepository.findById(1).orElse(new GhostCountSettings());
         settings.setId(1);
-        settings.setCountingSince(LocalDateTime.now(java.time.ZoneId.of("America/New_York")));
+        settings.setCountingSince(LocalDateTime.now(Clock.systemUTC()));
         settingsRepository.save(settings);
         return Map.of("status", "reset", "countingSince", settings.getCountingSince().toString());
     }
@@ -43,7 +44,7 @@ public class GhostBusController {
                 .orElseGet(() -> {
                     GhostCountSettings settings = new GhostCountSettings();
                     settings.setId(1);
-                    settings.setCountingSince(LocalDateTime.now(java.time.ZoneId.of("America/New_York")));
+                    settings.setCountingSince(LocalDateTime.now(Clock.systemUTC()));
                     settingsRepository.save(settings);
                     return settings.getCountingSince();
                 });
