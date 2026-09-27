@@ -8,47 +8,77 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class GhostBusDetectionService {
 
+    private static final double DISTANCE_THRESHOLD_METERS = 300.0;
+    private static final double TIME_TOLERANCE_SECONDS = 1800.0;
+    private static final int SECONDS_PER_DAY = 86400;
+
     private final StopTimeRepository stopTimeRepository;
     private final StopVisitRepository stopVisitRepository;
+    private final BusPositionRepository busPositionRepository;
 
     public GhostBusDetectionService(StopTimeRepository stopTimeRepository,
-                                    StopVisitRepository stopVisitRepository) {
+                                    StopVisitRepository stopVisitRepository,
+                                    BusPositionRepository busPositionRepository) {
         this.stopTimeRepository = stopTimeRepository;
         this.stopVisitRepository = stopVisitRepository;
+        this.busPositionRepository = busPositionRepository;
     }
 
-    @Scheduled(fixedRate = 120000) // every 2 minutes
+    @Scheduled(fixedRate = 120000)
     public void detectGhostBuses() {
         long start = System.currentTimeMillis();
 
-        LocalTime now = LocalTime.now();
-        LocalTime windowStart = now.minusMinutes(20);
-        LocalTime windowEnd = now.minusMinutes(10);
-        System.out.println(">>> Ghost-bus check running for window " + windowStart + " - " + windowEnd);
+        int nowSeconds = toSecondsSinceMidnight(LocalTime.now());
+        int windowStartSeconds = Math.floorMod(nowSeconds - 30 * 60, SECONDS_PER_DAY);
+        int windowEndSeconds = Math.floorMod(nowSeconds - 10 * 60, SECONDS_PER_DAY);
+        System.out.println(">>> Ghost-bus check running for window " + windowStartSeconds + "s - " + windowEndSeconds + "s (of day)");
 
-        // 1. Get all scheduled stops due in this window
-        List<StopTime> dueStopTimes = stopTimeRepository.findDueStopTimes(windowStart, windowEnd);
+        List<StopTime> dueStopTimes = stopTimeRepository.findAll().stream()
+                .filter(st -> {
+                    Integer schedSeconds = parseGtfsSeconds(st.getArrivalTime());
+                    return schedSeconds != null && isInWindow(schedSeconds, windowStartSeconds, windowEndSeconds);
+                })
+                .toList();
         System.out.println(">>> " + dueStopTimes.size() + " scheduled stops due for checking");
 
-        // 2. Fetch only distinct trip/stop keys, not full historical visit entities.
-        Set<String> alreadyChecked = stopVisitRepository.findCheckedStopKeysAfter(LocalDateTime.now().minusHours(2));
-        System.out.println(">>> " + alreadyChecked.size() + " stop checks already on record");
+        Set<String> alreadyVisited = new HashSet<>();
+        for (StopVisit v : stopVisitRepository.findByCheckedAtAfter(LocalDateTime.now().minusHours(2))) {
+            if (v.getStatus() == StopVisitStatus.VISITED) {
+                alreadyVisited.add(v.getTripId() + "|" + v.getStopId());
+            }
+        }
+        System.out.println(">>> " + alreadyVisited.size() + " stops already confirmed visited, skipping those");
 
-        // 3. Get every currently-active trip_id via route+headsign match — ONE query
-        Set<String> activeTripIds = stopTimeRepository.findActiveTripIds();
-        System.out.println(">>> " + activeTripIds.size() + " active trip IDs found via route+headsign match");
+        List<StopTime> toCheck = dueStopTimes.stream()
+                .filter(st -> !alreadyVisited.contains(st.getTripId() + "|" + st.getStopId()))
+                .toList();
+        System.out.println(">>> " + toCheck.size() + " stops actually need checking");
 
-        // 4. Decide VISITED/MISSED and save in bounded batches.
+        if (toCheck.isEmpty()) {
+            System.out.println(">>> Nothing to check, done in " + (System.currentTimeMillis() - start) + "ms");
+            return;
+        }
+
+        Set<String> tripIds = toCheck.stream().map(StopTime::getTripId).collect(Collectors.toSet());
+        List<Object[]> visitedPairs = busPositionRepository.findVisitedTripStopPairs(
+                tripIds, LocalDateTime.now().minusMinutes(45), DISTANCE_THRESHOLD_METERS, TIME_TOLERANCE_SECONDS);
+
+        Set<String> visitedKeys = new HashSet<>();
+        for (Object[] row : visitedPairs) {
+            visitedKeys.add(row[0] + "|" + row[1]);
+        }
+        System.out.println(">>> " + visitedKeys.size() + " (trip,stop) pairs confirmed visited via GPS proximity");
+
         List<StopVisit> toSave = new ArrayList<>();
-        int visited = 0, missed = 0, skipped = 0;
+        int visited = 0, missed = 0;
 
-        for (StopTime st : dueStopTimes) {
+        for (StopTime st : toCheck) {
             String key = st.getTripId() + "|" + st.getStopId();
-            if (alreadyChecked.contains(key)) { skipped++; continue; }
 
             StopVisit visit = new StopVisit();
             visit.setTripId(st.getTripId());
@@ -56,7 +86,7 @@ public class GhostBusDetectionService {
             visit.setScheduledTime(st.getArrivalTime());
             visit.setCheckedAt(LocalDateTime.now());
 
-            if (activeTripIds.contains(st.getTripId())) {
+            if (visitedKeys.contains(key)) {
                 visit.setStatus(StopVisitStatus.VISITED);
                 visited++;
             } else {
@@ -64,17 +94,37 @@ public class GhostBusDetectionService {
                 missed++;
             }
             toSave.add(visit);
-            if (toSave.size() == 250) {
-                stopVisitRepository.saveAll(toSave);
-                toSave.clear();
-            }
         }
 
-        // 5. Save the remaining partial batch.
-        if (!toSave.isEmpty()) stopVisitRepository.saveAll(toSave);
+        stopVisitRepository.saveAll(toSave);
 
         System.out.println(">>> Ghost-bus check done in " + (System.currentTimeMillis() - start) + "ms — "
-                + visited + " visited, " + missed + " missed, " + skipped + " already checked");
+                + visited + " visited, " + missed + " missed");
     }
 
+    private int toSecondsSinceMidnight(LocalTime t) {
+        return t.getHour() * 3600 + t.getMinute() * 60 + t.getSecond();
+    }
+
+    private boolean isInWindow(int scheduledSeconds, int windowStartSeconds, int windowEndSeconds) {
+        if (windowStartSeconds <= windowEndSeconds) {
+            return scheduledSeconds >= windowStartSeconds && scheduledSeconds <= windowEndSeconds;
+        } else {
+            // window itself wraps past midnight
+            return scheduledSeconds >= windowStartSeconds || scheduledSeconds <= windowEndSeconds;
+        }
+    }
+
+    private Integer parseGtfsSeconds(String gtfsTime) {
+        if (gtfsTime == null) return null;
+        try {
+            String[] parts = gtfsTime.split(":");
+            int hour = Integer.parseInt(parts[0]) % 24;
+            int minute = Integer.parseInt(parts[1]);
+            int second = Integer.parseInt(parts[2]);
+            return hour * 3600 + minute * 60 + second;
+        } catch (Exception e) {
+            return null;
+        }
+    }
 }

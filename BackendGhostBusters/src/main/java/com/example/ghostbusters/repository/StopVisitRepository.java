@@ -4,15 +4,12 @@ import com.example.ghostbusters.entity.StopVisit;
 import com.example.ghostbusters.entity.StopVisitStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Set;
 
 public interface StopVisitRepository extends JpaRepository<StopVisit, Long> {
-
-    @Query("select min(v.checkedAt) from StopVisit v where v.status = :status")
-    LocalDateTime findFirstCheckedAtByStatus(StopVisitStatus status);
 
     long countByStatus(StopVisitStatus status);
 
@@ -20,6 +17,14 @@ public interface StopVisitRepository extends JpaRepository<StopVisit, Long> {
 
     List<StopVisit> findByCheckedAtAfter(LocalDateTime after);
 
-    @Query("select distinct concat(v.tripId, '|', v.stopId) from StopVisit v where v.checkedAt > :after")
-    Set<String> findCheckedStopKeysAfter(LocalDateTime after);
+    @Query(value = """
+        SELECT COUNT(*) FROM (
+            SELECT trip_id
+            FROM transit.stop_visits
+            WHERE checked_at > :since
+            GROUP BY trip_id
+            HAVING COUNT(*) FILTER (WHERE status = 'VISITED') = 0
+        ) AS truly_ghost
+        """, nativeQuery = true)
+    long countDistinctGhostTrips(@Param("since") LocalDateTime since);
 }

@@ -1,6 +1,7 @@
 package com.example.ghostbusters.controller;
 
-import com.example.ghostbusters.entity.StopVisitStatus;
+import com.example.ghostbusters.entity.GhostCountSettings;
+import com.example.ghostbusters.repository.GhostCountSettingsRepository;
 import com.example.ghostbusters.repository.StopVisitRepository;
 import org.springframework.web.bind.annotation.*;
 
@@ -12,25 +13,39 @@ import java.util.Map;
 public class GhostBusController {
 
     private final StopVisitRepository stopVisitRepository;
+    private final GhostCountSettingsRepository settingsRepository;
 
-    public GhostBusController(StopVisitRepository stopVisitRepository) {
+    public GhostBusController(StopVisitRepository stopVisitRepository,
+                              GhostCountSettingsRepository settingsRepository) {
         this.stopVisitRepository = stopVisitRepository;
+        this.settingsRepository = settingsRepository;
     }
 
     @GetMapping("/count")
-    public Map<String, Long> getGhostBusCount(@RequestParam(defaultValue = "false") boolean allTime) {
-        long count = allTime ? stopVisitRepository.countByStatus(StopVisitStatus.MISSED)
-                : stopVisitRepository.countByStatusAndCheckedAtAfter(
-                StopVisitStatus.MISSED,
-                LocalDateTime.now().minusHours(1)
-        );
+    public Map<String, Long> getGhostBusCount() {
+        LocalDateTime since = getOrCreateCountingSince();
+        long count = stopVisitRepository.countDistinctGhostTrips(since);
         return Map.of("ghostBusCount", count);
     }
 
-    @GetMapping("/since")
-    public CountingSince getCountingSince() {
-        return new CountingSince(stopVisitRepository.findFirstCheckedAtByStatus(StopVisitStatus.MISSED));
+    @PostMapping("/reset")
+    public Map<String, String> resetGhostBusCount() {
+        GhostCountSettings settings = settingsRepository.findById(1).orElse(new GhostCountSettings());
+        settings.setId(1);
+        settings.setCountingSince(LocalDateTime.now());
+        settingsRepository.save(settings);
+        return Map.of("status", "reset", "countingSince", settings.getCountingSince().toString());
     }
 
-    public record CountingSince(LocalDateTime since) {}
+    private LocalDateTime getOrCreateCountingSince() {
+        return settingsRepository.findById(1)
+                .map(GhostCountSettings::getCountingSince)
+                .orElseGet(() -> {
+                    GhostCountSettings settings = new GhostCountSettings();
+                    settings.setId(1);
+                    settings.setCountingSince(LocalDateTime.now());
+                    settingsRepository.save(settings);
+                    return settings.getCountingSince();
+                });
+    }
 }

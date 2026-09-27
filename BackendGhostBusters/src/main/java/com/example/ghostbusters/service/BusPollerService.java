@@ -1,7 +1,9 @@
 package com.example.ghostbusters.service;
 
 import com.example.ghostbusters.entity.Bus;
+import com.example.ghostbusters.entity.BusPosition;
 import com.example.ghostbusters.repository.BusRepository;
+import com.example.ghostbusters.repository.BusPositionRepository;
 import com.example.ghostbusters.service.dto.ArcGisResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -9,20 +11,21 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
-import java.util.HashSet;
-import java.util.Set;
 
 @Service
 public class BusPollerService {
 
     private static final String ARC_GIS_URL =
-            "https://gis.miamidade.gov/arcgis/rest/services/BusMetro_RealTime/BusRealTime/MapServer/0/query?where=1=1&outFields=BusID,RouteID,TripID,TripHeadsign,OnTime,vehSpeed&f=json";
+            "https://gis.miamidade.gov/arcgis/rest/services/BusMetro_RealTime/BusRealTime/MapServer/0/query?where=1=1&outFields=*&f=json";
 
     @Autowired
     private RestTemplate restTemplate;
 
     @Autowired
     private BusRepository busRepository;
+
+    @Autowired
+    private BusPositionRepository busPositionRepository;
 
     @Scheduled(fixedRate = 20000) // every 20 seconds
     public void pollLiveBuses() {
@@ -35,7 +38,8 @@ public class BusPollerService {
             }
 
             int saved = 0;
-            Set<Long> currentBusIds = new HashSet<>();
+            LocalDateTime now = LocalDateTime.now();
+
             for (ArcGisResponse.ArcGisFeature feature : response.features()) {
                 var attrs = feature.attributes();
                 var geom = feature.geometry();
@@ -50,14 +54,21 @@ public class BusPollerService {
                 bus.setLatitude(geom.y());
                 bus.setOnTime(attrs.OnTime());
                 bus.setSpeed(attrs.vehSpeed());
-                bus.setLastUpdated(LocalDateTime.now());
-
+                bus.setLastUpdated(now);
                 busRepository.save(bus);
-                currentBusIds.add(bus.getBusId());
+
+                BusPosition position = new BusPosition();
+                position.setBusId(attrs.BusID());
+                position.setRouteId(attrs.RouteID());
+                position.setTripHeadsign(attrs.TripHeadsign());
+                position.setLatitude(geom.y());
+                position.setLongitude(geom.x());
+                position.setRecordedAt(now);
+                busPositionRepository.save(position);
+
                 saved++;
             }
-            if (!currentBusIds.isEmpty()) busRepository.deleteByBusIdNotIn(currentBusIds);
-            System.out.println(">>> Bus poll: updated " + saved + " buses at " + LocalDateTime.now());
+            System.out.println(">>> Bus poll: updated " + saved + " buses at " + now);
 
         } catch (Exception e) {
             System.out.println(">>> Bus poll FAILED: " + e.getMessage());
