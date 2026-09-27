@@ -6,7 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import java.util.List;
 
 public interface ScheduledTripRepository extends JpaRepository<ScheduledTrip, String> {
-    @Query(value = "SELECT DISTINCT ON (route_id) * FROM transit.trips ORDER BY route_id", nativeQuery = true)
+    @Query(value = "SELECT DISTINCT ON (route_id, direction_id) * FROM transit.trips ORDER BY route_id, direction_id, trip_id", nativeQuery = true)
     List<ScheduledTrip> findRepresentativeTrips();
 
     ScheduledTrip findFirstByRouteId(String routeId);

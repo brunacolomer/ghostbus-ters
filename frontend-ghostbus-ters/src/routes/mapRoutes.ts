@@ -2,13 +2,20 @@ import { LngLatBounds, Map, Popup, type FilterSpecification, type GeoJSONSource,
 import type { Bus, BusRoute } from './getRoutes'
 
 const maxVisibleBuses = 100
+const directionSamples = 3
+
+type BusTrack = {
+  samples: [number, number][]
+  routeId?: string
+}
 
 export type RouteMap = {
   updateBuses: (buses: Bus[], selectedRouteId?: string) => void
+  selectRoute: (routeId?: string) => void
   clear: () => void
 }
 
-export function showRoutes(map: Map, routes: BusRoute[], fit = true): RouteMap | undefined {
+export function showRoutes(map: Map, routes: BusRoute[], fit = true, onSelect?: (route?: BusRoute) => void): RouteMap | undefined {
   if (!routes.length) return undefined
 
   const routesById = new globalThis.Map(routes.map((route) => [route.id, route]))
@@ -84,20 +91,79 @@ export function showRoutes(map: Map, routes: BusRoute[], fit = true): RouteMap |
   let hovered: string | undefined
   let selected: string | undefined
   let currentBuses: Bus[] = []
+  const busTracks = new globalThis.Map<number, BusTrack>()
+
+  function project(route: BusRoute, coordinates: [number, number]) {
+    const scale = Math.cos((coordinates[1] * Math.PI) / 180)
+    let best: { distance: number; along: number } | undefined
+    let along = 0
+    for (let index = 1; index < route.coordinates.length; index++) {
+      const [startLon, startLat] = route.coordinates[index - 1]
+      const [endLon, endLat] = route.coordinates[index]
+      const dx = (endLon - startLon) * scale
+      const dy = endLat - startLat
+      const length = Math.hypot(dx, dy)
+      if (!length) continue
+      const px = (coordinates[0] - startLon) * scale
+      const py = coordinates[1] - startLat
+      const ratio = Math.max(0, Math.min(1, (px * dx + py * dy) / (length * length)))
+      const distance = Math.hypot(px - ratio * dx, py - ratio * dy)
+      if (!best || distance < best.distance) best = { distance, along: along + ratio * length }
+      along += length
+    }
+    return best ? { distance: best.distance * 111320, along: best.along * 111320 } : undefined
+  }
 
   function findRoute(bus: Bus) {
-    return routes.find((route) => route.id === bus.routeId || route.number === bus.line || route.number === bus.routeId)
+    const candidates = routes.filter((route) => route.number === bus.line || route.number === bus.routeId)
+    if (bus.directionId != null) {
+      const byDirection = candidates.find((route) => route.directionId === bus.directionId)
+      if (byDirection) return byDirection
+    }
+    if (bus.headsign) {
+      const headsign = bus.headsign.trim().toUpperCase()
+      const byHeadsign = candidates.find((route) => route.headsign.trim().toUpperCase() === headsign)
+      if (byHeadsign) return byHeadsign
+    }
+    return routes.find((route) => route.id === bus.routeId)
+  }
+
+  function inferRoute(bus: Bus, candidates: BusRoute[]) {
+    const exact = findRoute(bus)
+    if (exact) return { route: exact, estimated: false }
+    if (!candidates.length || !Number.isFinite(bus.longitude) || !Number.isFinite(bus.latitude)) return { route: undefined, estimated: false }
+
+    const track = busTracks.get(bus.busId) || { samples: [] }
+    const current: [number, number] = [bus.longitude, bus.latitude]
+    const previous = track.samples.at(-1)
+    const scored = candidates.map((route) => {
+      const now = project(route, current)
+      const before = previous ? project(route, previous) : undefined
+      const movement = now && before ? now.along - before.along : 0
+      const score = (now?.distance ?? Infinity) + (movement < -40 ? 250 : 0) - Math.max(0, movement) * 0.02
+      return { route, score, distance: now?.distance ?? Infinity }
+    }).sort((a, b) => a.score - b.score)
+    const best = scored[0]
+    track.samples = [...track.samples, current].slice(-directionSamples)
+    busTracks.set(bus.busId, track)
+    if (!best || best.distance > 180 || track.samples.length < directionSamples) return { route: undefined, estimated: false }
+    track.routeId = best.route.id
+    return { route: best.route, estimated: true }
   }
 
   function updateBuses(buses: Bus[], selectedRouteId = selected) {
     currentBuses = buses
+    const activeBusIds = new Set(buses.map((bus) => bus.busId))
+    for (const busId of busTracks.keys()) if (!activeBusIds.has(busId)) busTracks.delete(busId)
     const source = map.getSource('live-buses') as GeoJSONSource | undefined
     if (!source) return
     source.setData({
       type: 'FeatureCollection',
       features: buses.flatMap((bus) => {
         if (!Number.isFinite(bus.latitude) || !Number.isFinite(bus.longitude)) return []
-        const route = findRoute(bus)
+        const candidates = routes.filter((route) => route.number === bus.line || route.number === bus.routeId)
+        const match = inferRoute(bus, candidates)
+        const route = match.route
         return [{
           type: 'Feature' as const,
           properties: {
@@ -106,6 +172,8 @@ export function showRoutes(map: Map, routes: BusRoute[], fit = true): RouteMap |
             line: bus.line,
             headsign: bus.headsign,
             directionId: bus.directionId,
+            estimated: match.estimated,
+            estimatedDirection: match.estimated ? route?.headsign : null,
             lastUpdated: bus.lastUpdated,
             color: route?.color,
           },
@@ -127,6 +195,25 @@ export function showRoutes(map: Map, routes: BusRoute[], fit = true): RouteMap |
     map.setPaintProperty('bus-lines', 'line-opacity', selected ? 0.12 : 0.5)
   }
 
+  function selectRoute(routeId?: string) {
+    selected = routeId
+    const route = routeId ? routesById.get(routeId) : undefined
+    updateBuses(currentBuses, selected)
+    const stops = map.getSource('bus-stops') as GeoJSONSource | undefined
+    stops?.setData({
+      type: 'FeatureCollection',
+      features: (route?.stops ?? []).map((stop) => ({
+        type: 'Feature',
+        properties: { routeId, stopName: stop.name, color: route?.color },
+        geometry: { type: 'Point', coordinates: stop.coordinates },
+      })),
+    })
+    hovered = undefined
+    popup.remove()
+    highlight()
+    onSelect?.(route)
+  }
+
   function explore(event: MapMouseEvent) {
     // A theme change temporarily removes these layers.
     if (!map.getLayer('bus-hit')) return
@@ -135,20 +222,7 @@ export function showRoutes(map: Map, routes: BusRoute[], fit = true): RouteMap |
     const isBus = feature?.layer.id === 'live-buses'
     const route = routesById.get(feature?.properties.routeId)
     const routeId = route?.id
-    if (!isBus && event.type === 'click' && selected !== routeId) {
-      selected = routeId
-      updateBuses(currentBuses, selected)
-      const stops = map.getSource('bus-stops') as GeoJSONSource
-      stops.setData({
-        type: 'FeatureCollection',
-        features: (route?.stops ?? []).map((stop) => ({
-          type: 'Feature',
-          properties: { routeId, stopName: stop.name, color: route?.color },
-          geometry: { type: 'Point', coordinates: stop.coordinates },
-        })),
-      })
-      highlight()
-    }
+    if (!isBus && event.type === 'click' && selected !== routeId) selectRoute(routeId)
     if (hovered !== routeId) {
       hovered = routeId
       highlight()
@@ -164,7 +238,11 @@ export function showRoutes(map: Map, routes: BusRoute[], fit = true): RouteMap |
       ? `${feature.properties.line || route?.number || 'Bus'} · ${feature.properties.headsign || route?.name || 'Unknown route'}`
       : route?.name || ''
     detail.textContent = isBus
-      ? `Direction ${feature.properties.directionId ?? 'unknown'} · Updated ${new Date(feature.properties.lastUpdated).toLocaleTimeString()}`
+      ? feature.properties.directionId != null
+        ? `Direction ${feature.properties.directionId} · Updated ${new Date(feature.properties.lastUpdated).toLocaleTimeString()}`
+        : feature.properties.estimatedDirection
+          ? `Likely ${feature.properties.estimatedDirection} · Updated ${new Date(feature.properties.lastUpdated).toLocaleTimeString()}`
+          : `Direction unknown · Updated ${new Date(feature.properties.lastUpdated).toLocaleTimeString()}`
       : feature?.properties.stopName || `${route?.stops.length || 0} stops`
     popup.setLngLat(event.lngLat).addTo(map)
   }
@@ -187,9 +265,9 @@ export function showRoutes(map: Map, routes: BusRoute[], fit = true): RouteMap |
     for (const id of ['bus-stops', 'bus-highlight', 'bus-hit', 'bus-lines', 'live-buses']) {
       if (map.getLayer(id)) map.removeLayer(id)
     }
-    for (const id of ['bus-stops', 'bus-routes']) {
+    for (const id of ['bus-stops', 'bus-routes', 'live-buses']) {
       if (map.getSource(id)) map.removeSource(id)
     }
   }
-  return { updateBuses, clear }
+  return { updateBuses, selectRoute, clear }
 }

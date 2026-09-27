@@ -24,8 +24,8 @@ export function Introduction() {
 
   return (
     <>
-      <button ref={about} className="about-button" type="button" onClick={() => dialog.current?.showModal()}>
-        About
+      <button ref={about} className="about-button" type="button" title="About Ghost Bus-ters" aria-label="About Ghost Bus-ters" onClick={() => dialog.current?.showModal()}>
+        ?
       </button>
       <dialog ref={dialog} className="intro" role="dialog" aria-modal="true" aria-labelledby="intro-title" onClose={dismissed}>
         <button className="intro-close" type="button" aria-label="Close introduction" onClick={() => dialog.current?.close()}>×</button>

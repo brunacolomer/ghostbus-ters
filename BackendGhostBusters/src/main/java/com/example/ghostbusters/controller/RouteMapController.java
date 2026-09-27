@@ -32,15 +32,15 @@ public class RouteMapController {
     public List<RouteMapResponse> getRoutesForMap() {
         long start = System.currentTimeMillis();
 
-        // 1. Fetch routes and only one representative trip per route.
+        // 1. Fetch one representative trip per route direction.
         List<Route> allRoutes = routeRepository.findAll();
         List<ScheduledTrip> allTrips = scheduledTripRepository.findRepresentativeTrips();
         System.out.println(">>> Loaded " + allRoutes.size() + " routes, " + allTrips.size() + " trips");
 
-        // 2. Index the representative trips by route.
-        Map<String, ScheduledTrip> sampleTripByRoute = new HashMap<>();
+                // 2. Keep every direction variant, keyed by route and direction.
+                Map<String, ScheduledTrip> sampleTripByRoute = new HashMap<>();
         for (ScheduledTrip trip : allTrips) {
-            sampleTripByRoute.putIfAbsent(trip.getRouteId(), trip);
+                        sampleTripByRoute.putIfAbsent(trip.getRouteId() + "|" + trip.getDirectionId(), trip);
         }
 
         // 3. Batch-fetch every shape's points in ONE query
@@ -68,9 +68,9 @@ public class RouteMapController {
         System.out.println(">>> Loaded " + stopsById.size() + " stops");
 
         // 6. Assemble the final response, all in memory — no more DB calls
-        List<RouteMapResponse> results = allRoutes.stream().map(route -> {
-            ScheduledTrip sampleTrip = sampleTripByRoute.get(route.getRouteId());
-            if (sampleTrip == null) return null;
+        List<RouteMapResponse> results = allRoutes.stream().flatMap(route -> allTrips.stream()
+                .filter(trip -> route.getRouteId().equals(trip.getRouteId()))
+                .map(sampleTrip -> {
 
             List<double[]> coordinates = coordsByShapeId.getOrDefault(sampleTrip.getShapeId(), List.of());
 
@@ -84,9 +84,11 @@ public class RouteMapController {
 
             String color = route.getRouteColor() != null ? "#" + route.getRouteColor() : "#3b82f6";
 
-            return new RouteMapResponse(route.getRouteId(), route.getRouteShortName(), route.getRouteLongName(),
-                    sampleTrip.getTripHeadsign(), color, coordinates, stops);
-        }).filter(Objects::nonNull).collect(Collectors.toList());
+            String direction = String.valueOf(sampleTrip.getDirectionId());
+            return new RouteMapResponse(route.getRouteId() + ":" + direction,
+                    route.getRouteId(), route.getRouteShortName(), route.getRouteLongName(),
+                    sampleTrip.getTripHeadsign(), sampleTrip.getDirectionId(), color, coordinates, stops);
+        })).collect(Collectors.toList());
 
         System.out.println(">>> DONE in " + (System.currentTimeMillis() - start) + "ms — returning " + results.size() + " routes");
         return results;

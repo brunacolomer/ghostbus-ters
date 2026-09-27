@@ -1,14 +1,11 @@
 .about-button {
-  position: absolute;
-  bottom: 32px;
-  left: 16px;
-  padding: 9px 14px;
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  background: var(--surface);
-  color: inherit;
-  font: 13px system-ui, sans-serif;
-  cursor: pointer;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 15px;
 }
 .intro {
   box-sizing: border-box;
