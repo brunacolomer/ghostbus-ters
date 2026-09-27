@@ -2,33 +2,32 @@ package com.example.ghostbusters.service;
 
 import com.example.ghostbusters.entity.*;
 import com.example.ghostbusters.repository.*;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 public class GhostBusDetectionService {
 
-    private static final double DISTANCE_THRESHOLD_METERS = 300.0;
-    private static final double TIME_TOLERANCE_SECONDS = 1800.0;
     private static final int SECONDS_PER_DAY = 86400;
     private static final ZoneId EASTERN = ZoneId.of("America/New_York");
 
     private final StopTimeRepository stopTimeRepository;
     private final StopVisitRepository stopVisitRepository;
-    private final BusPositionRepository busPositionRepository;
+    private final JdbcTemplate jdbcTemplate;
 
     public GhostBusDetectionService(StopTimeRepository stopTimeRepository,
                                     StopVisitRepository stopVisitRepository,
-                                    BusPositionRepository busPositionRepository) {
+                                    JdbcTemplate jdbcTemplate) {
         this.stopTimeRepository = stopTimeRepository;
         this.stopVisitRepository = stopVisitRepository;
-        this.busPositionRepository = busPositionRepository;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     @Scheduled(fixedRate = 120000)
@@ -61,39 +60,25 @@ public class GhostBusDetectionService {
             return;
         }
 
-        Set<String> tripIds = toCheck.stream().map(StopTime::getTripId).collect(Collectors.toSet());
-        List<Object[]> visitedPairs = busPositionRepository.findVisitedTripStopPairs(
-                tripIds, LocalDateTime.now(EASTERN).minusMinutes(45), DISTANCE_THRESHOLD_METERS, TIME_TOLERANCE_SECONDS);
+        Set<String> activeTripIds = stopTimeRepository.findActiveTripIds();
+        System.out.println(">>> " + activeTripIds.size() + " active trip IDs found via route+headsign match");
 
-        Set<String> visitedKeys = new HashSet<>();
-        for (Object[] row : visitedPairs) {
-            visitedKeys.add(row[0] + "|" + row[1]);
-        }
-        System.out.println(">>> " + visitedKeys.size() + " (trip,stop) pairs confirmed visited via GPS proximity");
-
-        List<StopVisit> toSave = new ArrayList<>();
+        LocalDateTime now = LocalDateTime.now(EASTERN);
+        List<Object[]> batchArgs = new ArrayList<>();
         int visited = 0, missed = 0;
 
         for (StopTime st : toCheck) {
-            String key = st.getTripId() + "|" + st.getStopId();
-
-            StopVisit visit = new StopVisit();
-            visit.setTripId(st.getTripId());
-            visit.setStopId(st.getStopId());
-            visit.setScheduledTime(st.getArrivalTime());
-            visit.setCheckedAt(LocalDateTime.now(EASTERN));
-
-            if (visitedKeys.contains(key)) {
-                visit.setStatus(StopVisitStatus.VISITED);
-                visited++;
-            } else {
-                visit.setStatus(StopVisitStatus.MISSED);
-                missed++;
-            }
-            toSave.add(visit);
+            String status = activeTripIds.contains(st.getTripId()) ? "VISITED" : "MISSED";
+            if (status.equals("VISITED")) visited++; else missed++;
+            batchArgs.add(new Object[]{
+                    st.getTripId(), st.getStopId(), st.getArrivalTime(), status, Timestamp.valueOf(now)
+            });
         }
 
-        stopVisitRepository.saveAll(toSave);
+        jdbcTemplate.batchUpdate(
+                "INSERT INTO transit.stop_visits (trip_id, stop_id, scheduled_time, status, checked_at) VALUES (?, ?, ?, ?, ?)",
+                batchArgs
+        );
 
         System.out.println(">>> Ghost-bus check done in " + (System.currentTimeMillis() - start) + "ms — "
                 + visited + " visited, " + missed + " missed");
