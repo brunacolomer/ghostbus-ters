@@ -25,7 +25,7 @@ export type Bus = {
 }
 
 const productionApiUrl = 'https://api.ghostbus-ters.miami'
-const apiUrl = import.meta.env.VITE_API_BASE_URL || productionApiUrl
+export const apiUrl = import.meta.env.VITE_API_BASE_URL || productionApiUrl
 
 export async function getRoutes(signal: AbortSignal): Promise<BusRoute[]> {
   const response = await fetch(`${apiUrl.replace(/\/$/, '')}/api/routes`, { signal })

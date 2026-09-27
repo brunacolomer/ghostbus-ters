@@ -207,12 +207,13 @@ export function TripPlanner({ routes, mapRef }: { routes: BusRoute[]; mapRef: Re
         <button type="submit" disabled={!from || !to || from === to || loading || !!picking}>{loading ? 'Planning…' : 'Find a route'}</button>
       </form>
       {!stops.length && <p role="status">Stops will appear when route data is available.</p>}
-      <p className="planner-demo">Demo planner: highlighted lines are illustrative. Transfers and travel time are not calculated.</p>
+      <p className="planner-demo">Routes use scheduled stop connections, not live departure times. Nearby transfers may require walking.</p>
       {error && <p role="alert">{error}</p>}
       {journey && <section aria-label="Journey result" aria-live="polite">
-        <h3>{journey.demo ? 'Example journey' : 'Your journey'} · {journey.minutes} min</h3>
+        <h3>Your journey</h3>
         <p>{stops.find((stop) => stop.id === from)?.name} → {stops.find((stop) => stop.id === to)?.name}</p>
-        <p>Full lines shown on the map, not a validated path between your stops.</p>
+        <p>Overall reliability score: {Math.round(journey.reliability * 100)}%. Missing observations use a 50% default.</p>
+        {!journey.steps.length && <p>The destination is within walking distance (250 m).</p>}
         <ol>{journey.steps.map((step, index) => <li key={index}><strong className="journey-line" style={{ borderLeft: `4px solid ${step.color}` }}>{step.line}</strong><span>{step.instruction}</span></li>)}</ol>
       </section>}
     </aside>

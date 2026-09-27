@@ -12,6 +12,7 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/routes")
 public class RouteMapController {
 
+    private final com.example.ghostbusters.service.RoutePlannerService planner;
     private final RouteRepository routeRepository;
     private final ScheduledTripRepository scheduledTripRepository;
     private final ShapeRepository shapeRepository;
@@ -20,12 +21,19 @@ public class RouteMapController {
 
     public RouteMapController(RouteRepository routeRepository, ScheduledTripRepository scheduledTripRepository,
                               ShapeRepository shapeRepository, StopTimeRepository stopTimeRepository,
-                              StopRepository stopRepository) {
+                              StopRepository stopRepository, com.example.ghostbusters.service.RoutePlannerService planner) {
+        this.planner = planner;
         this.routeRepository = routeRepository;
         this.scheduledTripRepository = scheduledTripRepository;
         this.shapeRepository = shapeRepository;
         this.stopTimeRepository = stopTimeRepository;
         this.stopRepository = stopRepository;
+    }
+
+    @GetMapping("/plan")
+    public com.example.ghostbusters.service.RoutePlannerService.Plan plan(
+            @RequestParam String fromStopId, @RequestParam String toStopId) {
+        return planner.plan(fromStopId, toStopId);
     }
 
     @GetMapping
