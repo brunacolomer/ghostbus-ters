@@ -76,20 +76,28 @@ export type RouteReliability = {
   missRatePercent: number
 }
 
-export async function getRouteReliability(routeId: string, signal: AbortSignal): Promise<RouteReliability | null> {
+export type ReliabilityRow = RouteReliability & { routeId: string; number: string }
+
+export async function getReliabilityOverview(signal: AbortSignal): Promise<ReliabilityRow[]> {
   const response = await fetch(`${apiUrl.replace(/\/$/, '')}/api/routes/reliability`, { signal })
   if (!response.ok) throw new Error('Could not load reliability')
   const rows: Record<string, string | number>[] = await response.json()
-  // PostgreSQL may lowercase the unquoted aliases in this native-query response.
-  const row = rows.find((item) => String(item.routeId ?? item.routeid) === routeId)
-  if (!row) return null
-  const result = {
-    missedCount: Number(row.missedCount ?? row.missedcount),
-    totalChecked: Number(row.totalChecked ?? row.totalchecked),
-    missRatePercent: Number(row.missRatePercent ?? row.missratepercent),
-  }
-  if (!Object.values(result).every(Number.isFinite) || result.missRatePercent < 0 || result.missRatePercent > 100) {
-    throw new Error('Invalid reliability response')
-  }
-  return result.totalChecked > 0 ? result : null
+  return rows.map((row) => {
+    // PostgreSQL may lowercase the native query's aliases.
+    const result = {
+      routeId: String(row.routeId ?? row.routeid),
+      number: String(row.routeShortName ?? row.routeshortname ?? row.routeId ?? row.routeid),
+      missedCount: Number(row.missedCount ?? row.missedcount),
+      totalChecked: Number(row.totalChecked ?? row.totalchecked),
+      missRatePercent: Number(row.missRatePercent ?? row.missratepercent),
+    }
+    if (![result.missedCount, result.totalChecked, result.missRatePercent].every(Number.isFinite)
+      || result.totalChecked < 0 || result.missedCount < 0 || result.missedCount > result.totalChecked
+      || result.missRatePercent < 0 || result.missRatePercent > 100) throw new Error('Invalid reliability response')
+    return result
+  }).filter((row) => row.totalChecked > 0)
+}
+
+export async function getRouteReliability(routeId: string, signal: AbortSignal): Promise<RouteReliability | null> {
+  return (await getReliabilityOverview(signal)).find((row) => row.routeId === routeId) ?? null
 }
