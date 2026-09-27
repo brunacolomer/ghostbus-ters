@@ -10,7 +10,6 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import java.time.Clock;
 import java.time.LocalDateTime;
 
 @Service
@@ -39,7 +38,7 @@ public class BusPollerService {
             }
 
             int saved = 0;
-            LocalDateTime now = LocalDateTime.now(Clock.systemUTC());
+            LocalDateTime now = LocalDateTime.now(java.time.ZoneId.of("America/New_York"));
 
             for (ArcGisResponse.ArcGisFeature feature : response.features()) {
                 var attrs = feature.attributes();
