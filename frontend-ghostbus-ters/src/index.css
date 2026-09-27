@@ -71,6 +71,7 @@ body {
 .map-view[data-theme='light'] .maplibregl-ctrl-attrib {
   background: #fff !important;
   color: #586570;
+  display: none !important;
   border: 1px solid #0000001a;
   border-radius: 12px;
 }

@@ -3,6 +3,7 @@ import { Map, Marker, NavigationControl, setWorkerUrl } from 'maplibre-gl'
 import mapWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import { getBuses, getRoutes, type Bus, type BusRoute } from '../routes/getRoutes'
 import { showRoutes, type RouteMap } from '../routes/mapRoutes'
+import { TripPlanner } from './TripPlanner'
 import { RoutePanel } from './RoutePanel'
 import { GhostSummary } from './GhostSummary'
 import { Introduction } from './Introduction'
@@ -110,6 +111,17 @@ export function MapView() {
         <Introduction />
       </div>
       <GhostSummary />
+      <TripPlanner mapRef={mapRef} routes={routes} hidden={!!selectedRoute} />
+      {selectedRoute && <button className="back-to-planner" type="button" aria-label="Bring me there" title="Bring me there"
+        onClick={() => {
+          routeMapRef.current?.selectRoute()
+          requestAnimationFrame(() => document.getElementById('journey-from')?.focus())
+        }}>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="m12 2 10 10-10 10L2 12Z" />
+          <path d="M8 15v-4h8m-3-3 3 3-3 3" />
+        </svg>
+      </button>}
       {selectedRoute && <RoutePanel key={selectedRoute.id} route={selectedRoute} routes={routes} buses={liveBuses} busError={busError}
         onClose={() => routeMapRef.current?.selectRoute()}
         onDirectionChange={(route) => routeMapRef.current?.selectRoute(route.id)}

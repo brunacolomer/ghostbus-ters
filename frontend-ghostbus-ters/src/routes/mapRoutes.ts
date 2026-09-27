@@ -215,6 +215,7 @@ export function showRoutes(map: Map, routes: BusRoute[], fit = true, onSelect?: 
   }
 
   function explore(event: MapMouseEvent) {
+    if (map.getLayer('planner-stops')) { popup.remove(); return }
     // A theme change temporarily removes these layers.
     if (!map.getLayer('bus-hit')) return
     const features = map.queryRenderedFeatures(event.point, { layers: ['live-buses', 'bus-stops', 'bus-highlight', 'bus-hit'] })

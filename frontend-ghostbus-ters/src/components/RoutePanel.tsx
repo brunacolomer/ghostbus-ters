@@ -155,7 +155,7 @@ export function RoutePanel({ route, routes, buses, busError, onClose, onDirectio
       <header>
         <span className="route-panel-number" style={{ background: route.color }}>{route.number}</span>
         <h2 id="route-panel-title">{route.name}</h2>
-        <button type="button" onClick={onClose} aria-label="Close route details">×</button>
+        <button type="button" onClick={onClose} aria-label="Back to trip planner" title="Back to trip planner">×</button>
       </header>
       <div className="route-panel-content">
         {directions.length > 1 && <nav className="route-directions" aria-label="Choose direction">
