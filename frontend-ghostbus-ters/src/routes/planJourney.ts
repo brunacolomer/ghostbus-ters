@@ -46,11 +46,10 @@ export async function planJourney(
   if (response.status === 404) throw new Error('No route found within two transfers.')
   if (!response.ok) throw new Error('Could not plan this journey. Please try again.')
   const plan: { segments: Segment[]; reliability: number } = await response.json()
-  const colors = ['#38bdf8', '#fb923c', '#c084fc']
   const routes: Journey['routes'] = []
-  const steps = plan.segments.map((segment, index) => {
-    const color = colors[index % colors.length]
+  const steps = plan.segments.map((segment) => {
     const candidates = availableRoutes.filter((route) => (route.routeId || route.id) === segment.routeId)
+    const color = candidates[0]?.color || '#3b82f6'
     const coordinates = candidates.map((route) => segmentCoordinates(route, segment.fromStopId, segment.toStopId))
       .find((points) => points.length >= 2)
     if (coordinates) routes.push({ color, coordinates })
