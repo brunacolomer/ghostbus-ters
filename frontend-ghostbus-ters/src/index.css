@@ -206,8 +206,6 @@ body {
 }
 
 .ghost-summary {
-  margin-right: 0px !important;
-  padding-right: 0px !important;
   position: absolute;
   top: 16px;
   right: 50px;
@@ -224,3 +222,34 @@ body {
 .ghost-summary-label { color: var(--muted); }
 .ghost-summary strong { display: block; font-size: 32px; font-variant-numeric: tabular-nums; line-height: 1.4; }
 .ghost-summary small { display: block; margin-top: 8px; font-size: 11px; color: var(--muted); }
+
+/* All map popups follow the active theme, including the station picker. */
+.map-view .maplibregl-popup-content {
+  background: var(--surface);
+  color: inherit;
+  border-radius: 10px;
+  box-shadow: 0 4px 18px #0003;
+  font: 12px/1.5 system-ui, sans-serif;
+}
+.map-view[data-theme='dark'] .maplibregl-popup-content { color: #fff; }
+.map-view .maplibregl-popup-close-button { color: inherit; }
+.map-view .maplibregl-popup[class*='anchor-bottom'] .maplibregl-popup-tip { border-top-color: var(--surface); }
+.map-view .maplibregl-popup[class*='anchor-top'] .maplibregl-popup-tip { border-bottom-color: var(--surface); }
+.map-view .maplibregl-popup-anchor-left .maplibregl-popup-tip { border-right-color: var(--surface); }
+.map-view .maplibregl-popup-anchor-right .maplibregl-popup-tip { border-left-color: var(--surface); }
+.planner-hover-popup { pointer-events: none; }
+
+.network-buses { border-top: 1px solid var(--border); margin-top: 14px; padding-top: 12px; }
+.network-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 6px; }
+.network-metrics span { font-size: 11px; color: var(--muted); }
+.ghost-summary .network-metrics strong { font-size: 24px; }
+@media (max-width: 800px) {
+  .ghost-summary { padding: 10px 12px; }
+  .ghost-summary > section:first-child small { display: none; }
+  .network-buses { margin-top: 8px; padding-top: 8px; }
+  .network-buses > small { display: none; }
+  .trip-planner { top: 280px; max-height: calc(100dvh - 360px); }
+}
+@media (max-width: 700px) {
+  .route-panel, .back-to-planner { top: 280px; }
+}

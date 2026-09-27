@@ -110,8 +110,8 @@ export function MapView() {
         </button>
         <Introduction />
       </div>
-      <GhostSummary />
-      <TripPlanner mapRef={mapRef} routes={routes} hidden={!!selectedRoute} />
+      <GhostSummary buses={liveBuses} busError={busError} />
+      {!selectedRoute && <TripPlanner mapRef={mapRef} routes={routes} />}
       {selectedRoute && <button className="back-to-planner" type="button" aria-label="Bring me there" title="Bring me there"
         onClick={() => {
           routeMapRef.current?.selectRoute()

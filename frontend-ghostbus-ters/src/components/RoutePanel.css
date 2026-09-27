@@ -92,11 +92,8 @@
 .route-between:not(:empty) { padding: 14px 0 6px; }
 .route-other-buses { margin: 20px 0; }
 .route-other-buses summary { cursor: pointer; }
-.map-view:has(.route-panel) .ghost-summary { left: auto; right: 72px; top: 16px; }
 @media (max-width: 700px) {
   .route-panel { width: calc(100% - 76px); top: 150px; bottom: 16px; padding: 16px; }
-  .map-view:has(.route-panel) .ghost-summary { left: auto; right: 72px; top: 16px; padding: 10px 14px; }
-  .map-view:has(.route-panel) .ghost-summary strong { font-size: 24px; }
 }
 .route-panel .route-schedule { margin-top: 4px; font-weight: 400; }
 
@@ -125,3 +122,8 @@
 @media (max-width: 700px) {
   .back-to-planner { top: 150px; left: auto; right: 10px; }
 }
+
+.route-reliability { padding: 10px 12px; margin-bottom: 10px; border: 1px solid var(--border); border-left: 3px solid var(--line-color); border-radius: 8px; }
+.route-reliability > div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.route-reliability strong { font-size: 22px; font-variant-numeric: tabular-nums; }
+.route-reliability small { display: block; margin-top: 3px; }

@@ -20,16 +20,18 @@ public class BusController {
 
     @GetMapping
     public List<BusPositionResponse> getBusPositions() {
+        var recentSince = LocalDateTime.now(java.time.ZoneId.of("America/New_York")).minusMinutes(2);
         return busRepository.findAll().stream().map(bus ->
                 // The live RouteID is the public line number, not the GTFS route primary key.
                 new BusPositionResponse(bus.getBusId(), bus.getLatitude(), bus.getLongitude(),
                         bus.getRouteId(), bus.getRouteId(), bus.getTripId(),
-                        null, bus.getTripHeadsign(), bus.getLastUpdated())
+                        null, bus.getTripHeadsign(), bus.getLastUpdated(), bus.getSpeed(),
+                        bus.getLastUpdated() != null && !bus.getLastUpdated().isBefore(recentSince))
         ).toList();
     }
 
     public record BusPositionResponse(Long busId, Double latitude, Double longitude,
                                       String routeId, String line, String tripId,
                                       Integer directionId, String headsign,
-                                      LocalDateTime lastUpdated) {}
+                                      LocalDateTime lastUpdated, Double speed, boolean observedRecently) {}
 }

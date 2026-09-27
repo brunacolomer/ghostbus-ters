@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
-import { getRouteSchedule, type RouteSchedule, getRouteActivity, type Bus, type BusRoute, type RouteActivity } from '../routes/getRoutes'
+import { getRouteReliability, type RouteReliability, getRouteSchedule, type RouteSchedule, getRouteActivity, type Bus, type BusRoute, type RouteActivity } from '../routes/getRoutes'
 import './RoutePanel.css'
 
 type Props = {
@@ -71,6 +71,27 @@ function positionBuses(route: BusRoute, buses: Bus[], variants: BusRoute[]) {
 }
 
 export function RoutePanel({ route, routes, buses, busError, onClose, onDirectionChange, onFocus }: Props) {
+  const [reliability, setReliability] = useState<RouteReliability | null>()
+  const [reliabilityError, setReliabilityError] = useState(false)
+  useEffect(() => {
+    const controller = new AbortController()
+    let timer: number | undefined
+    async function refresh() {
+      try {
+        const data = await getRouteReliability(route.routeId || route.id, controller.signal)
+        if (controller.signal.aborted) return
+        setReliability(data)
+        setReliabilityError(false)
+      } catch {
+        if (!controller.signal.aborted) setReliabilityError(true)
+      } finally {
+        if (!controller.signal.aborted) timer = window.setTimeout(refresh, 60_000)
+      }
+    }
+    void refresh()
+    return () => { controller.abort(); window.clearTimeout(timer) }
+  }, [route.routeId, route.id])
+
   const [activity, setActivity] = useState<RouteActivity | null>(null)
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
@@ -174,6 +195,11 @@ export function RoutePanel({ route, routes, buses, busError, onClose, onDirectio
         <p>Displayed journey: {route.headsign || 'Direction unavailable'}</p>
         <div className="route-panel-overview">
           <strong>{route.stops.length} stops</strong><span>{lineBuses ? `${lineBuses.length} observed buses` : 'Loading buses…'}</span>
+        </div>
+        <div className="route-reliability" role="status">
+          <div><span>Estimated reliability</span><strong>{reliabilityError ? '—' : reliability ? `${(100 - reliability.missRatePercent).toFixed(1)}%` : '—'}</strong></div>
+          <small>{reliabilityError ? 'Reliability temporarily unavailable' : reliability === undefined ? 'Loading reliability…' : reliability === null ? 'No checked stops in the last hour' : `${reliability.totalChecked.toLocaleString()} checked · ${reliability.missedCount.toLocaleString()} missed · last hour`}</small>
+          <small>Checked stops marked visited · all directions. Not an on-time score.</small>
         </div>
         <p className="route-panel-note">Bus placement is approximate, based on reported positions along this journey. Scheduled times use Miami time; they are not live arrival predictions.</p>
         {busError && <p role="status">Bus updates unavailable{buses ? ' · showing last received positions' : ''}.</p>}

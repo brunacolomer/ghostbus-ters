@@ -192,7 +192,7 @@ export function showRoutes(map: Map, routes: BusRoute[], fit = true, onSelect?: 
   function highlight() {
     if (!map.getLayer('bus-highlight')) return
     map.setFilter('bus-highlight', ['in', ['get', 'routeId'], ['literal', [selected, hovered].filter((id) => id !== undefined)]])
-    map.setPaintProperty('bus-lines', 'line-opacity', selected ? 0.12 : 0.5)
+    map.setPaintProperty('bus-lines', 'line-opacity', selected ? 0.12 : map.getLayer('planner-journey') ? 0.08 : 0.5)
   }
 
   function selectRoute(routeId?: string) {
@@ -215,7 +215,14 @@ export function showRoutes(map: Map, routes: BusRoute[], fit = true, onSelect?: 
   }
 
   function explore(event: MapMouseEvent) {
-    if (map.getLayer('planner-stops')) { popup.remove(); return }
+    const target = event.originalEvent.target
+    if (target instanceof Element && target.closest('.maplibregl-marker, .maplibregl-popup')) return
+    if (map.getLayer('planner-stops')) {
+      popup.remove()
+      if (event.type !== 'click' || map.queryRenderedFeatures(
+        [[event.point.x - 5, event.point.y - 5], [event.point.x + 5, event.point.y + 5]],
+        { layers: ['planner-stops'] }).length) return
+    }
     // A theme change temporarily removes these layers.
     if (!map.getLayer('bus-hit')) return
     const features = map.queryRenderedFeatures(event.point, { layers: ['live-buses', 'bus-stops', 'bus-highlight', 'bus-hit'] })
