@@ -11,5 +11,7 @@ public interface StopVisitRepository extends JpaRepository<StopVisit, Long> {
 
     long countByStatus(StopVisitStatus status);
 
+    long countByStatusAndCheckedAtAfter(StopVisitStatus status, LocalDateTime after);
+
     List<StopVisit> findByCheckedAtAfter(LocalDateTime after);
 }
