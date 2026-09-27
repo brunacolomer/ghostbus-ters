@@ -43,10 +43,8 @@ public class GhostBusDetectionService {
         System.out.println(">>> " + dueStopTimes.size() + " scheduled stops due for checking");
 
         Set<String> alreadyVisited = new HashSet<>();
-        for (StopVisit v : stopVisitRepository.findByCheckedAtAfter(LocalDateTime.now(EASTERN).minusHours(2))) {
-            if (v.getStatus() == StopVisitStatus.VISITED) {
-                alreadyVisited.add(v.getTripId() + "|" + v.getStopId());
-            }
+        for (Object[] row : stopVisitRepository.findVisitedKeysSince(LocalDateTime.now(EASTERN).minusHours(2))) {
+            alreadyVisited.add(row[0] + "|" + row[1]);
         }
         System.out.println(">>> " + alreadyVisited.size() + " stops already confirmed visited, skipping those");
 

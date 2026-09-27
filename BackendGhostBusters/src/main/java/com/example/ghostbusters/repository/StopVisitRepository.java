@@ -61,4 +61,11 @@ public interface StopVisitRepository extends JpaRepository<StopVisit, Long> {
         ORDER BY missRatePercent DESC
         """, nativeQuery = true)
     List<Map<String, Object>> findRouteReliability(@Param("since") LocalDateTime since);
+
+    @Query(value = """
+        SELECT DISTINCT trip_id, stop_id
+        FROM transit.stop_visits
+        WHERE status = 'VISITED' AND checked_at > :since
+        """, nativeQuery = true)
+    List<Object[]> findVisitedKeysSince(@Param("since") LocalDateTime since);
 }
