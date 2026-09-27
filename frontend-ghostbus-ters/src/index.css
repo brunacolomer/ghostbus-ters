@@ -81,12 +81,21 @@ body {
   padding: 14px;
   border-top: 4px solid var(--route-color);
   display: grid;
-  grid-template-columns: 40px 1fr;
+  grid-template-columns: minmax(40px, 96px) minmax(0, 1fr);
   grid-template-rows: 40px 32px;
   gap: 10px;
   font: 12px/16px system-ui, sans-serif;
 }
+.route-popup-body.live-bus-popup-body {
+  height: 132px;
+  grid-template-rows: 40px 48px;
+}
 .route-popup-number {
+  min-width: 0;
+  overflow: hidden;
+  padding: 0 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   display: grid;
   place-items: center;
   border-radius: 9px;
@@ -95,7 +104,10 @@ body {
   font-size: 16px;
   font-weight: 700;
 }
-.route-popup-name { align-self: center; }
+.route-popup-name {
+  min-width: 0;
+  align-self: center;
+}
 .route-popup-detail {
   grid-column: 1 / -1;
   margin: 0;

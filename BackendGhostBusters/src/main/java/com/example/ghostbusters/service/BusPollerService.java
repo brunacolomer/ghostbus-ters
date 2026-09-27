@@ -9,6 +9,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 
 @Service
 public class BusPollerService {
@@ -33,6 +35,7 @@ public class BusPollerService {
             }
 
             int saved = 0;
+            Set<Long> currentBusIds = new HashSet<>();
             for (ArcGisResponse.ArcGisFeature feature : response.features()) {
                 var attrs = feature.attributes();
                 var geom = feature.geometry();
@@ -50,8 +53,10 @@ public class BusPollerService {
                 bus.setLastUpdated(LocalDateTime.now());
 
                 busRepository.save(bus);
+                currentBusIds.add(bus.getBusId());
                 saved++;
             }
+            if (!currentBusIds.isEmpty()) busRepository.deleteByBusIdNotIn(currentBusIds);
             System.out.println(">>> Bus poll: updated " + saved + " buses at " + LocalDateTime.now());
 
         } catch (Exception e) {
