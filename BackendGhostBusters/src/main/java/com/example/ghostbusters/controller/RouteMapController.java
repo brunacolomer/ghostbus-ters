@@ -32,12 +32,12 @@ public class RouteMapController {
     public List<RouteMapResponse> getRoutesForMap() {
         long start = System.currentTimeMillis();
 
-        // 1. Fetch everything in bulk, up front
+        // 1. Fetch routes and only one representative trip per route.
         List<Route> allRoutes = routeRepository.findAll();
-        List<ScheduledTrip> allTrips = scheduledTripRepository.findAll();
+        List<ScheduledTrip> allTrips = scheduledTripRepository.findRepresentativeTrips();
         System.out.println(">>> Loaded " + allRoutes.size() + " routes, " + allTrips.size() + " trips");
 
-        // 2. Pick ONE representative trip per route, in memory (no DB call per route)
+        // 2. Index the representative trips by route.
         Map<String, ScheduledTrip> sampleTripByRoute = new HashMap<>();
         for (ScheduledTrip trip : allTrips) {
             sampleTripByRoute.putIfAbsent(trip.getRouteId(), trip);

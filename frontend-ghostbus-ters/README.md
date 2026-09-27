@@ -44,3 +44,5 @@ npm run dev
 Run `npm run build` and `npm run lint` to check the project.
 
 The first-visit introduction explains scheduled versus live transit data and the current demo. It uses a native modal dialog with keyboard focus containment and Escape support. Dismissal is saved in localStorage (`ghostbus-introduction-seen`); About reopens it. Clear that key to replay the first visit. If storage is unavailable, the introduction still opens and closes normally.
+
+The persistent ghost-bus summary refreshes every 60 seconds using `/api/ghost-buses/count?allTime=true` and `/api/ghost-buses/since`. The count represents MISSED stop-visit records, not distinct vehicles. `since` is the earliest MISSED record's `checked_at` (null when none exist); the card displays its recorded calendar date. The existing `/count` default still returns the last hour. Deploy the updated backend before using this summary; both calls use `VITE_API_BASE_URL` when set.

@@ -34,3 +34,10 @@ export async function getBuses(signal: AbortSignal): Promise<Bus[]> {
   if (!response.ok) throw new Error('Could not load buses')
   return response.json()
 }
+
+export async function getGhostSummary(signal: AbortSignal): Promise<{ count: number }> {
+  const response = await fetch(`${apiUrl.replace(/\/$/, '')}/api/ghost-buses/count`, { signal })
+  if (!response.ok) throw new Error('Could not load ghost bus count')
+  const data = await response.json()
+  return { count: data.ghostBusCount }
+}

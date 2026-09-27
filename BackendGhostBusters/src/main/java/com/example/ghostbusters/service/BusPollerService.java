@@ -16,7 +16,7 @@ import java.util.Set;
 public class BusPollerService {
 
     private static final String ARC_GIS_URL =
-            "https://gis.miamidade.gov/arcgis/rest/services/BusMetro_RealTime/BusRealTime/MapServer/0/query?where=1=1&outFields=*&f=json";
+            "https://gis.miamidade.gov/arcgis/rest/services/BusMetro_RealTime/BusRealTime/MapServer/0/query?where=1=1&outFields=BusID,RouteID,TripID,TripHeadsign,OnTime,vehSpeed&f=json";
 
     @Autowired
     private RestTemplate restTemplate;

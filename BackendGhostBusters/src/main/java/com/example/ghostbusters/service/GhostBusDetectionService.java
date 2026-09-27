@@ -31,26 +31,18 @@ public class GhostBusDetectionService {
         System.out.println(">>> Ghost-bus check running for window " + windowStart + " - " + windowEnd);
 
         // 1. Get all scheduled stops due in this window
-        List<StopTime> dueStopTimes = stopTimeRepository.findAll().stream()
-                .filter(st -> {
-                    LocalTime schedTime = parseGtfsTime(st.getArrivalTime());
-                    return schedTime != null && !schedTime.isBefore(windowStart) && !schedTime.isAfter(windowEnd);
-                })
-                .toList();
+        List<StopTime> dueStopTimes = stopTimeRepository.findDueStopTimes(windowStart, windowEnd);
         System.out.println(">>> " + dueStopTimes.size() + " scheduled stops due for checking");
 
-        // 2. Batch-fetch every (trip_id, stop_id) pair already checked in the last 2 hours — ONE query
-        Set<String> alreadyChecked = new HashSet<>();
-        for (StopVisit v : stopVisitRepository.findByCheckedAtAfter(LocalDateTime.now().minusHours(2))) {
-            alreadyChecked.add(v.getTripId() + "|" + v.getStopId());
-        }
+        // 2. Fetch only distinct trip/stop keys, not full historical visit entities.
+        Set<String> alreadyChecked = stopVisitRepository.findCheckedStopKeysAfter(LocalDateTime.now().minusHours(2));
         System.out.println(">>> " + alreadyChecked.size() + " stop checks already on record");
 
         // 3. Get every currently-active trip_id via route+headsign match — ONE query
         Set<String> activeTripIds = stopTimeRepository.findActiveTripIds();
         System.out.println(">>> " + activeTripIds.size() + " active trip IDs found via route+headsign match");
 
-        // 4. Decide VISITED/MISSED for each due stop, all in memory — no DB calls in this loop
+        // 4. Decide VISITED/MISSED and save in bounded batches.
         List<StopVisit> toSave = new ArrayList<>();
         int visited = 0, missed = 0, skipped = 0;
 
@@ -72,25 +64,17 @@ public class GhostBusDetectionService {
                 missed++;
             }
             toSave.add(visit);
+            if (toSave.size() == 250) {
+                stopVisitRepository.saveAll(toSave);
+                toSave.clear();
+            }
         }
 
-        // 5. Save everything in one batch call instead of one-by-one
-        stopVisitRepository.saveAll(toSave);
+        // 5. Save the remaining partial batch.
+        if (!toSave.isEmpty()) stopVisitRepository.saveAll(toSave);
 
         System.out.println(">>> Ghost-bus check done in " + (System.currentTimeMillis() - start) + "ms — "
                 + visited + " visited, " + missed + " missed, " + skipped + " already checked");
     }
 
-    private LocalTime parseGtfsTime(String gtfsTime) {
-        if (gtfsTime == null) return null;
-        try {
-            String[] parts = gtfsTime.split(":");
-            int hour = Integer.parseInt(parts[0]) % 24;
-            int minute = Integer.parseInt(parts[1]);
-            int second = Integer.parseInt(parts[2]);
-            return LocalTime.of(hour, minute, second);
-        } catch (Exception e) {
-            return null;
-        }
-    }
 }

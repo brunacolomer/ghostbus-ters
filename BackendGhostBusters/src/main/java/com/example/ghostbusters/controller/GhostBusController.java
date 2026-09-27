@@ -18,11 +18,19 @@ public class GhostBusController {
     }
 
     @GetMapping("/count")
-    public Map<String, Long> getGhostBusCount() {
-        long count = stopVisitRepository.countByStatusAndCheckedAtAfter(
+    public Map<String, Long> getGhostBusCount(@RequestParam(defaultValue = "false") boolean allTime) {
+        long count = allTime ? stopVisitRepository.countByStatus(StopVisitStatus.MISSED)
+                : stopVisitRepository.countByStatusAndCheckedAtAfter(
                 StopVisitStatus.MISSED,
                 LocalDateTime.now().minusHours(1)
         );
         return Map.of("ghostBusCount", count);
     }
+
+    @GetMapping("/since")
+    public CountingSince getCountingSince() {
+        return new CountingSince(stopVisitRepository.findFirstCheckedAtByStatus(StopVisitStatus.MISSED));
+    }
+
+    public record CountingSince(LocalDateTime since) {}
 }

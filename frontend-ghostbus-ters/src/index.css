@@ -134,3 +134,20 @@ body {
 .maplibregl-ctrl-group button:hover { background-color: var(--hover); }
 .maplibregl-ctrl-icon,
 .maplibregl-ctrl-attrib-button { filter: var(--icon-filter); }
+
+.ghost-summary {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  max-width: calc(100% - 100px);
+  box-sizing: border-box;
+  padding: 16px 20px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 4px 18px #0002;
+}
+.ghost-summary p { margin: 0; font-size: 13px; }
+.ghost-summary-label { color: var(--muted); }
+.ghost-summary strong { display: block; font-size: 32px; font-variant-numeric: tabular-nums; line-height: 1.4; }
+.ghost-summary small { display: block; margin-top: 8px; font-size: 11px; color: var(--muted); }

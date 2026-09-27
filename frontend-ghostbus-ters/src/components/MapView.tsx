@@ -3,6 +3,7 @@ import { Map, NavigationControl, setWorkerUrl } from 'maplibre-gl'
 import mapWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import { getBuses, getRoutes, type Bus, type BusRoute } from '../routes/getRoutes'
 import { showRoutes, type RouteMap } from '../routes/mapRoutes'
+import { GhostSummary } from './GhostSummary'
 import { Introduction } from './Introduction'
 import 'maplibre-gl/dist/maplibre-gl.css'
 
@@ -19,7 +20,7 @@ export function MapView() {
     const controller = new AbortController()
     let routeMap: RouteMap | undefined
     let buses: Bus[] = []
-    let refreshBuses: (() => void) | undefined
+    let refreshBuses: number | undefined
     const map = new Map({
       container: container.current,
       style: 'https://tiles.openfreemap.org/styles/dark',
@@ -86,6 +87,7 @@ export function MapView() {
       <button className="theme-toggle" type="button" onClick={toggleTheme} aria-label="Dark mode" aria-pressed={dark}>
         {dark ? '☀ Light mode' : '☾ Dark mode'}
       </button>
+      <GhostSummary />
       <Introduction />
       {status && <p className="map-status" role="status">{status}</p>}
     </main>
