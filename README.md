@@ -1,91 +1,97 @@
-# ghostbus-ters
-👻 Ghost Bus-ters
+# Ghost Bus-ters 👻🚌
 
-Finding the buses that were never actually coming.
+**Finding the buses that were scheduled, but never actually showed up.**
 
-Miami-Dade's transit network leans hard on buses — its Metrorail only has two lines (Green and Orange), so buses cover most of the county rail never reaches. Riders already deal with traffic delays, but there's a harder-to-see problem underneath that: ghost buses — trips that are scheduled to serve a stop but never actually show up.
+Ghost Bus-ters compares Miami-Dade's published bus schedules with real-time vehicle data to detect **ghost buses**: scheduled trips that appear in the timetable but never seem to arrive.
 
-Nobody analyzes schedule data against real vehicle data together, so nobody can say how often it happens, where, or which routes are worst. Ghost Bus-ters combines Miami-Dade's published GTFS schedule with its live ArcGIS bus-tracking feed to detect that gap automatically, and turns it into an interactive map anyone can explore.
+Built at **ShellHacks 2026** for the **Waymo challenge**, the project combines open transit data, real-time tracking and an interactive map to explore bus reliability across Miami-Dade.
 
-Live app: ghostbus-ters.miami API: api.ghostbus-ters.miami
+[**Live app →**](https://ghostbus-ters.miami) · [**API →**](https://api.ghostbus-ters.miami) · [**Devpost →**](DEVPOST_URL)
 
-What it does
-Renders every Miami-Dade bus route on an interactive map, with live vehicle positions
-Continuously compares the static schedule against real GPS data to flag stops a bus never reached
-Surfaces a running count of distinct ghost trips, and a per-route reliability breakdown
-Plans multi-leg trips between two stops, weighted by each leg's live reliability score
-Syncs reliability snapshots to Snowflake for downstream analytics
-How detection actually works
-BusPollerService polls Miami-Dade's ArcGIS real-time feed every 20 seconds and stores current vehicle positions.
-GhostBusDetectionService runs every 2 minutes:
-Computes a 10–30 minute lookback window (in seconds-since-midnight, so it doesn't break across midnight)
-Pulls every scheduled stop due in that window directly from the database (findDueInWindow), rather than loading the entire schedule into memory
-Skips stops already confirmed VISITED, but keeps re-checking previously MISSED ones — so a bus running a few minutes late still gets credit once it actually arrives
-Matches live vehicles to scheduled trips on route number + destination headsign — the live feed's trip IDs and the GTFS trip IDs are two unrelated numbering systems, so headsign text is the actual bridge between "a real bus out there" and "a line in the timetable"
-Batch-writes every result straight through JDBC rather than one row at a time through JPA
-GET /api/ghost-buses/count reports the number of distinct trips that have never once been confirmed visited since a stored checkpoint — not a raw count of missed stop-checks, which would wildly overstate the problem.
+---
 
-A stop only becomes a "ghost" when no live vehicle anywhere is reporting that route + destination combination — a deliberately conservative bar, so the system is more likely to under-count real ghosts than to falsely accuse a bus that's simply running late.
+## Demo
 
-Architecture
-Miami-Dade GTFS (static)  ──┐
-                             ├──►  Spring Boot backend  ──►  PostgreSQL / TimescaleDB
-Miami-Dade ArcGIS (live)  ──┘         (DigitalOcean)          (Tiger Data Cloud)
-                                          │
-                                          ├──► Snowflake (reliability analytics)
-                                          │
-                                          ▼
-                              React + MapLibre GL frontend
-                                  (DigitalOcean Static Site)
-Tech stack
 
-Backend: Java · Spring Boot · Spring Data JPA / JDBC Frontend: React · TypeScript · Vite · MapLibre GL Database: PostgreSQL / TimescaleDB (Tiger Data Cloud) Analytics: Snowflake Infra: DigitalOcean App Platform, custom domain + DNS Data sources: Miami-Dade GTFS static feed, Miami-Dade ArcGIS Bus Real-Time REST API
+[![Watch the demo](https://img.youtube.com/vi/[VIDEO_ID](https://youtu.be/DPUPwCxo6mk)/maxresdefault.jpg)](https://www.youtube.com/watch?v=[VIDEO_ID](https://youtu.be/DPUPwCxo6mk))
 
-Backend structure
-Layer	Purpose
-entity/	One class per database table — Bus, Route, ScheduledTrip, StopTime, Shape, Stop, StopVisit, GhostCountSettings
-repository/	All database access, including the route+headsign matching query and the reliability aggregations
-service/	The two scheduled jobs (BusPollerService, GhostBusDetectionService), plus RoutePlannerService, RouteScheduleService, and SnowflakeSyncService
-controller/	The actual API surface — the only layer the frontend can reach
-API endpoints
-Method & path	What it returns
-GET /health	Basic liveness check
-GET /api/routes	All routes, shapes, and stops for the map
-GET /api/routes/plan?fromStopId=&toStopId=	A multi-leg trip plan with reliability scoring
-GET /api/buses	Live vehicle positions
-GET /api/ghost-buses/count	Distinct ghost-trip count since the last reset
-POST /api/ghost-buses/reset	Resets the counting checkpoint
-GET /api/routes/{routeId}/activity	Recent missed arrivals for one route
-GET /api/routes/{routeId}/schedule?headsign=	Upcoming scheduled arrivals
-GET /api/routes/reliability	Miss-rate percentage per route
-Running it locally
+---
 
-Backend (BackendGhostBusters/) needs src/main/resources/application.properties with:
+## What it does
 
-properties
-spring.datasource.url=jdbc:postgresql://<host>:<port>/<db>?currentSchema=transit&sslmode=require
-spring.datasource.username=<user>
-spring.datasource.password=<password>
-snowflake.url=jdbc:snowflake://<account>.snowflakecomputing.com/?warehouse=<wh>&db=<db>&schema=<schema>
-snowflake.user=<user>
-snowflake.password=<password>
+- 🗺️ Displays Miami-Dade routes, stops and live buses
+- 👻 Detects scheduled trips that may never have arrived
+- 📊 Calculates reliability statistics by route
+- 🧭 Plans trips while taking route reliability into account
+- ❄️ Sends reliability snapshots to Snowflake for further analysis
 
-Then: ./gradlew bootRun
+## How detection works
 
-Frontend (frontend-ghostbus-ters/) needs a .env with:
+The backend combines two sources:
 
-VITE_API_BASE_URL=http://localhost:8080
+- **GTFS static data** → what buses are scheduled to do
+- **Miami-Dade ArcGIS real-time data** → where buses actually are
 
-Then: npm install && npm run dev
+`BusPollerService` stores live bus positions, while `GhostBusDetectionService` checks recently scheduled stops against that data.
 
-Challenges
-Timezone mismatch: the backend's host environment ran in UTC while the transit data is all Miami local time, which briefly made real-time buses look hours later than they actually were until every timestamp was explicitly normalized.
-Mismatched identifiers: the GTFS schedule and the live ArcGIS feed don't share trip or route IDs — matching had to go through route number + headsign text instead.
-Time: a hackathon-length data collection window isn't enough to build the kind of long-term reliability statistics this problem really calls for — the system is built to keep accumulating data past the event.
-What's next
+The GTFS and live feeds use unrelated trip IDs, so buses are matched mainly using their **route and destination headsign**.
 
-With more time collecting live data, Ghost Bus-ters could surface which routes and stops are least reliable, which times of day are worst, and how reliability trends over weeks or months — turning this from a snapshot into something riders and the transit agency could actually act on.
+Previously missed stops are checked again so late buses can still be marked as visited. The detection is intentionally conservative: we'd rather miss some ghost buses than classify a bus as missing just because it is late.
 
-Built with
+---
 
-API · DigitalOcean · Docker · GTFS · Java · MapLibre · PostgreSQL · React · REST · Snowflake · Spring Boot · SQL · Tiger Data · TypeScript · Vite
+## Architecture
+
+```text
+GTFS schedule ───────────┐
+                        ├──► Spring Boot backend
+ArcGIS live bus data ───┘          │
+                                   ├──► PostgreSQL / TimescaleDB
+                                   ├──► Snowflake
+                                   │
+                                   ▼
+                             React + MapLibre
+```
+
+The frontend and backend are deployed on **DigitalOcean App Platform**.
+
+## Tech stack
+
+| | Technologies |
+| --- | --- |
+| Frontend | React, TypeScript, Vite, MapLibre GL |
+| Backend | Java, Spring Boot, JPA, JDBC |
+| Database | PostgreSQL / TimescaleDB — Tiger Data |
+| Analytics | Snowflake |
+| Infrastructure | DigitalOcean, Docker |
+| Data | Miami-Dade GTFS + ArcGIS real-time API |
+
+---
+
+## Main API endpoints
+
+| Endpoint | Description |
+| --- | --- |
+| `GET /api/routes` | Routes, shapes and stops |
+| `GET /api/buses` | Live bus positions |
+| `GET /api/ghost-buses/count` | Detected ghost trips |
+| `GET /api/routes/reliability` | Reliability by route |
+| `GET /api/routes/{routeId}/activity` | Recent route activity |
+| `GET /api/routes/{routeId}/schedule` | Upcoming arrivals |
+| `GET /api/routes/plan` | Reliability-aware trip planning |
+
+Swagger docs are available at `/docs`.
+
+---
+
+## What's next?
+
+A hackathon gives us enough data to demonstrate the idea, but not enough to properly measure long-term reliability.
+
+With more data, Ghost Bus-ters could show which **routes, stops, days and times** consistently experience missing service and how those patterns change over time.
+
+---
+
+Built by students at **ShellHacks 2026** for the **Waymo challenge**.
+
+[**View on Devpost →**](DEVPOST_URL)
